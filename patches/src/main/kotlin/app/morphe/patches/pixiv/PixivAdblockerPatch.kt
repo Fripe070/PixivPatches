@@ -35,10 +35,7 @@ val pixivAdblockerPatch: BytecodePatch = bytecodePatch(
             for (ctor in constructors) {
                 ctor.addInstructions(
                     1,
-                    """
-                    invoke-static {p0}, Lapp/morphe/extension/pixiv/adblock/AdblockHelper;->hideBanner(Landroid/view/View;)V
-                    return-void
-                    """.trimIndent()
+                    "invoke-static/range {p0 .. p0}, Lapp/morphe/extension/pixiv/adblock/AdblockHelper;->hideBanner(Landroid/view/View;)V"
                 )
             }
         }
@@ -48,7 +45,7 @@ val pixivAdblockerPatch: BytecodePatch = bytecodePatch(
         val mainOnCreate = mainActivityClass.methods.first { it.name == "onCreate" }
         mainOnCreate.addInstructions(
             1,
-            "invoke-static {p0}, Lapp/morphe/extension/pixiv/adblock/AdblockHelper;->collapseMainActivityBanner(Landroid/app/Activity;)V"
+            "invoke-static/range {p0 .. p0}, Lapp/morphe/extension/pixiv/adblock/AdblockHelper;->collapseMainActivityBanner(Landroid/app/Activity;)V"
         )
 
         // --- Hook 3: Suppress in-app review request dialog (b.onCreate rating observer) ---
@@ -84,7 +81,7 @@ val pixivAdblockerPatch: BytecodePatch = bytecodePatch(
             showMethod?.addInstructions(
                 1,
                 """
-                invoke-static {p0}, Lapp/morphe/extension/pixiv/adblock/AdblockHelper;->hideSponsoredItem(Ljava/lang/Object;)V
+                invoke-static/range {p0 .. p0}, Lapp/morphe/extension/pixiv/adblock/AdblockHelper;->hideSponsoredItem(Ljava/lang/Object;)V
                 return-void
                 """.trimIndent()
             )

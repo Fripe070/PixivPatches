@@ -26,7 +26,7 @@ val pixivAiFlaggerPatch: BytecodePatch = bytecodePatch(
         val dMethod = thumbnailClass.methods.first { it.name == "d" }
         dMethod.addInstructions(
             1,
-            "invoke-static {p0, p1}, Lapp/morphe/extension/pixiv/aiflag/AiUiHelper;->onThumbnailBound(Landroid/view/ViewGroup;Ljava/lang/Object;)V"
+            "invoke-static/range {p0 .. p1}, Lapp/morphe/extension/pixiv/aiflag/AiUiHelper;->onThumbnailBound(Landroid/view/ViewGroup;Ljava/lang/Object;)V"
         )
 
         // --- Hook 2: DetailCaptionAndTagsView.setIllust (Artwork detail screen tag pill) ---
@@ -45,7 +45,7 @@ val pixivAiFlaggerPatch: BytecodePatch = bytecodePatch(
             setIllustMethod.addInstructions(
                 targetIndex,
                 """
-                invoke-static {p1}, Lapp/morphe/extension/pixiv/aiflag/AiDetectionHelper;->isAi(Ljava/lang/Object;)Z
+                invoke-static/range {p1 .. p1}, Lapp/morphe/extension/pixiv/aiflag/AiDetectionHelper;->isAi(Ljava/lang/Object;)Z
                 move-result v7
                 """.trimIndent()
             )
@@ -57,7 +57,7 @@ val pixivAiFlaggerPatch: BytecodePatch = bytecodePatch(
         onCreateMethod.addInstructions(
             1,
             """
-            invoke-static {p0}, Lapp/morphe/extension/pixiv/aiflag/AiFilterSettingsView;->setup(Landroid/app/Activity;)V
+            invoke-static/range {p0 .. p0}, Lapp/morphe/extension/pixiv/aiflag/AiFilterSettingsView;->setup(Landroid/app/Activity;)V
             return-void
             """.trimIndent()
         )
@@ -67,7 +67,7 @@ val pixivAiFlaggerPatch: BytecodePatch = bytecodePatch(
         val holderBindMethod = detailImageHolderClass.methods.first { it.name == "bind" && it.parameterTypes.size == 1 }
         holderBindMethod.addInstructions(
             1,
-            "invoke-static {p0, p1}, Lapp/morphe/extension/pixiv/aiflag/AiUiHelper;->onDetailImageBound(Ljava/lang/Object;Ljava/lang/Object;)V"
+            "invoke-static/range {p0 .. p1}, Lapp/morphe/extension/pixiv/aiflag/AiUiHelper;->onDetailImageBound(Ljava/lang/Object;Ljava/lang/Object;)V"
         )
 
         // --- Hook 5: DetailBottomBarView.setWork ([AI] pill next to title and artist name in metadata header) ---
@@ -75,7 +75,7 @@ val pixivAiFlaggerPatch: BytecodePatch = bytecodePatch(
         val setWorkMethod = bottomBarClass.methods.first { it.name == "setWork" }
         setWorkMethod.addInstructions(
             1,
-            "invoke-static {p0, p1}, Lapp/morphe/extension/pixiv/aiflag/AiUiHelper;->onDetailBottomBarBound(Landroid/view/View;Ljava/lang/Object;)V"
+            "invoke-static/range {p0 .. p1}, Lapp/morphe/extension/pixiv/aiflag/AiUiHelper;->onDetailBottomBarBound(Landroid/view/View;Ljava/lang/Object;)V"
         )
     }
 }
