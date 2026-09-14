@@ -1,10 +1,12 @@
-name: Build Morphe Patch Bundle
+name: Build and Release Morphe Patch Bundle
 
 on:
   push:
     branches:
       - main
       - master
+    tags:
+      - 'v*'
     paths-ignore:
       - 'README.md'
       - '.gitignore'
@@ -16,12 +18,12 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   packages: read
 
 jobs:
   build:
-    name: Build .mpp Bundle
+    name: Build & Publish .mpp Bundle
     runs-on: ubuntu-latest
 
     steps:
@@ -57,3 +59,14 @@ jobs:
           path: patches/build/libs/*.mpp
           if-no-files-found: error
           retention-days: 30
+
+      - name: Attach MPP to GitHub Release on Tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          MPP_FILE=$(ls patches/build/libs/*.mpp | head -n 1)
+          echo "Releasing $MPP_FILE for tag $TAG_NAME"
+          gh release upload "$TAG_NAME" "$MPP_FILE" --clobber || \
+          gh release create "$TAG_NAME" "$MPP_FILE" --title "$TAG_NAME" --generate-notes

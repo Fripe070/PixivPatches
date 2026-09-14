@@ -35,6 +35,10 @@ Each patch is independently toggleable in Morphe Manager or via Morphe CLI:
 | `PixivAiFlaggerPatch` | **Pixiv AI Work Flagger** | `Enabled` | Feed, Search, Rankings, Detail, Settings | Identifies AI-generated works; dims thumbnails with red `[AI]` badge (or hides completely); adds top-left floating `[AI]` badge on artwork viewer; adds `[AI]` pill next to title & artist; includes in-app settings with keyboard-safe tag editor. |
 | `PixivAdblockerPatch` | **Pixiv Adblocker** | `Enabled` | Global Activities, Feeds | Collapses bottom AdMob / Google Ads banner without leaving dead layout padding; suppresses "Rate this app" review prompt; removes sponsored cards and promotional carousels. |
 | `PixivPersistentNavPatch` | **Pixiv Persistent Navigation** | `Enabled` | Submenus, Search Results, Rankings | Keeps the primary bottom navigation bar (`Home`, `Search`, `New`, `Notifications`, `My Page`) docked and functional when navigating into submenus and drill-down views. |
+| `PixivDownloaderPatch` | **Pixiv Downloader** | `Enabled` | Detail View | Adds an in-app download action button in the illustration and manga detail bar to save full-resolution artwork directly to Photos with metadata filenames. |
+| `PixivPremiumPatch` | **Pixiv Premium Features** | `Enabled` | Search, Settings, Account | Emulates client-side Pixiv Premium membership status, unlocks popularity sorting (`popular_desc`) in search without paywalls, and bypasses user mute limits. |
+| `PixivAnalyticsBlockerPatch` | **Pixiv Analytics Blocker** | `Enabled` | App-wide | Neutralizes Firebase Analytics, Google Measurement telemetry, and internal Pixiv event dispatchers for enhanced privacy. |
+| `PixivOledThemePatch` | **Pixiv OLED Dark Theme** | `Enabled` | App-wide Dark Mode | Overrides dark gray surface and background colors with pure pitch black (`#ff000000`) for OLED battery savings and true high-contrast dark theme. |
 
 ---
 
