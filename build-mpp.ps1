@@ -122,8 +122,18 @@ Copy-Item $OutputMpp "$RepoRoot\patches\build\libs\pixiv-patches-1.0.0.mpp" -For
 Copy-Item $OutputMpp "$RepoRoot\patches-$PatchesVersion.mpp" -Force
 
 # 7. Verification
-Write-Host "[5/5] Verifying bundle with morphe-cli..." -ForegroundColor Yellow
+Write-Host "[5/5] Verifying bundle with morphe-cli and dexdump..." -ForegroundColor Yellow
 & java -jar $MorpheCli list-patches --patches=$OutputMpp
+
+$DexDump = "$env:LOCALAPPDATA\Android\Sdk\build-tools\36.0.0\dexdump.exe"
+if (Test-Path $DexDump) {
+    Write-Host "Verifying compiled extension DEX bytecode with dexdump..." -ForegroundColor Gray
+    $dumpOut = & $DexDump -c "$($ExtDex.FullName)\classes.dex" 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "Extension DEX bytecode validation failed: $dumpOut"
+    }
+    Write-Host "[OK] Extension DEX passed dexdump validation." -ForegroundColor Green
+}
 
 Write-Host "======================================================================" -ForegroundColor Green
 Write-Host "  SUCCESS: $OutputMpp" -ForegroundColor Green
