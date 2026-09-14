@@ -1,6 +1,7 @@
 package app.morphe.patches.pixiv
 
 import app.morphe.patcher.extensions.InstructionExtensions.addInstructions
+import app.morphe.patcher.extensions.InstructionExtensions.replaceInstruction
 import app.morphe.patcher.patch.AppTarget
 import app.morphe.patcher.patch.BytecodePatch
 import app.morphe.patcher.patch.Compatibility
@@ -33,8 +34,15 @@ val pixivAdblockerPatch: BytecodePatch = bytecodePatch(
             val overlayClass = mutableClassDefByOrNull(overlayClassName) ?: continue
             val constructors = overlayClass.methods.filter { it.name == "<init>" }
             for (ctor in constructors) {
+                val instructions = ctor.implementation?.instructions
+                val superInitIndex = instructions?.indexOfFirst {
+                    it is com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction &&
+                    (it.reference as? com.android.tools.smali.dexlib2.iface.reference.MethodReference)?.name == "<init>"
+                } ?: -1
+
+                val insertIndex = if (superInitIndex != -1) superInitIndex + 1 else 1
                 ctor.addInstructions(
-                    1,
+                    insertIndex,
                     "invoke-static/range {p0 .. p0}, Lapp/morphe/extension/pixiv/adblock/AdblockHelper;->hideBanner(Landroid/view/View;)V"
                 )
             }
@@ -49,24 +57,26 @@ val pixivAdblockerPatch: BytecodePatch = bytecodePatch(
         )
 
         // --- Hook 3: Suppress in-app review request dialog (b.onCreate rating observer) ---
+        // Instead of returning early from b.onCreate (which truncates lifecycle subscriptions),
+        // we replace the invoke-static bi1.d0 rating subscription or neutralize Leza field access.
         val lifecycleBClass = mutableClassDefBy("Ljp/pxv/android/feature/bottomnavigationroot/lifecycle/b;")
         val bOnCreate = lifecycleBClass.methods.first { it.name == "onCreate" }
         val bInstructions = bOnCreate.implementation?.instructions
 
-        // Find instruction accessing Leza (rating prompt event stream)
-        val lezaIndex = bInstructions?.indexOfFirst {
+        val d0Index = bInstructions?.indexOfFirst {
             it is com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction &&
-            (it.reference as? com.android.tools.smali.dexlib2.iface.reference.FieldReference)?.let { field ->
-                field.name == "l" && field.type == "Leza;"
+            (it.reference as? com.android.tools.smali.dexlib2.iface.reference.MethodReference)?.let { method ->
+                method.definingClass == "Lbi1;" && method.name == "d0"
             } == true
         } ?: -1
 
-        if (lezaIndex != -1) {
-            bOnCreate.addInstructions(
-                lezaIndex,
-                "return-void"
+        if (d0Index != -1) {
+            bOnCreate.replaceInstruction(
+                d0Index,
+                "nop"
             )
         }
+
 
         // --- Hook 4: Hide sponsored works and promotional cards in feeds and detail screen ---
         val sponsoredClasses = listOf(

@@ -36,4 +36,17 @@ object PersistentNavHelper {
         } catch (_: Throwable) {
         }
     }
+
+    @JvmStatic
+    fun dispatchTabNavigation(activity: Activity?, tabId: Int) {
+        if (activity == null) return
+        try {
+            val intent = Intent(activity, Class.forName("jp.pxv.android.MainActivity"))
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            intent.putExtra("target_tab_id", tabId)
+            activity.startActivity(intent)
+        } catch (_: Throwable) {
+        }
+    }
 }
+

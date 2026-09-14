@@ -21,12 +21,11 @@ val pixivPersistentNavPatch: BytecodePatch = bytecodePatch(
     extendWith("extensions/pixiv.mpe")
 
     execute {
-        // --- Hook 1: Hook base AppCompatActivity (dv.onStart) inherited by all Pixiv submenus ---
-        // All submenus (SearchResultActivity, RankingActivity, MyBookmarkActivity, BrowsingHistoryActivity, etc.)
-        // inherit dv -> AppCompatActivity. Hooking onStart ensures the persistent navigation bar is attached
-        // as soon as the submenu activity's view hierarchy becomes active.
-        val dvClass = mutableClassDefBy("Ldv;")
-        val onStartMethod = dvClass.methods.first { it.name == "onStart" && it.parameterTypes.isEmpty() }
+        // --- Hook 1: Hook base FragmentActivity (androidx.fragment.app.r.onStart) ---
+        // dv inherits androidx.fragment.app.r. Hooking onStart on r ensures the persistent
+        // navigation bar is attached as soon as any submenu activity's view hierarchy becomes active.
+        val rClass = mutableClassDefBy("Landroidx/fragment/app/r;")
+        val onStartMethod = rClass.methods.first { it.name == "onStart" && it.parameterTypes.isEmpty() }
 
         onStartMethod.addInstructions(
             1,
@@ -34,3 +33,4 @@ val pixivPersistentNavPatch: BytecodePatch = bytecodePatch(
         )
     }
 }
+

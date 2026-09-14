@@ -181,7 +181,7 @@ echo [4/5] Packaging .mpp bundle...
     echo Manifest-Version: 1.0
     echo Name: Pixiv Patches
     echo Description: Morphe patches for Pixiv Android
-    echo Version: 1.0.0
+    echo Version: 1.0.1
     echo Source: https://github.com/Fripe070/PixivPatches
     echo Author: Fripe070
     echo Website: https://github.com/Fripe070/PixivPatches
@@ -189,7 +189,8 @@ echo [4/5] Packaging .mpp bundle...
     echo Patcher-Version: 1.10.0
 ) > "%BUILD_DIR%\staging\META-INF\MANIFEST.MF"
 
-set "OUTPUT_MPP=%REPO_ROOT%\patches\build\libs\pixiv-patches-1.0.0.mpp"
+set "OUTPUT_MPP=%REPO_ROOT%\patches\build\libs\pixiv-patches-1.0.1.mpp"
+
 if exist "%OUTPUT_MPP%" del "%OUTPUT_MPP%"
 
 jar cvfm "%OUTPUT_MPP%" "%BUILD_DIR%\staging\META-INF\MANIFEST.MF" -C "%BUILD_DIR%\staging" . >nul
