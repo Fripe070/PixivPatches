@@ -48,42 +48,6 @@ val pixivAdblockerPatch: BytecodePatch = bytecodePatch(
             }
         }
 
-        // --- Hook 2: MainActivity.onCreate collapse ad_container (0x7f0a004f) after setContentView ---
-        val mainActivityClass = mutableClassDefBy("Ljp/pxv/android/MainActivity;")
-        val mainOnCreate = mainActivityClass.methods.first { it.name == "onCreate" }
-        val mainInstructions = mainOnCreate.implementation?.instructions
-        val setContentViewIndex = mainInstructions?.indexOfFirst {
-            it is com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction &&
-            (it.reference as? com.android.tools.smali.dexlib2.iface.reference.MethodReference)?.name == "setContentView"
-        } ?: -1
-
-        val hookInsertIndex = if (setContentViewIndex != -1) setContentViewIndex + 1 else 1
-        mainOnCreate.addInstructions(
-            hookInsertIndex,
-            "invoke-static/range {p0 .. p0}, Lapp/morphe/extension/pixiv/adblock/AdblockHelper;->collapseMainActivityBanner(Landroid/app/Activity;)V"
-        )
-
-        // --- Hook 3: Suppress in-app review request dialog (b.onCreate rating observer) ---
-        // Instead of returning early from b.onCreate (which truncates lifecycle subscriptions),
-        // we replace the invoke-static bi1.d0 rating subscription or neutralize Leza field access.
-        val lifecycleBClass = mutableClassDefBy("Ljp/pxv/android/feature/bottomnavigationroot/lifecycle/b;")
-        val bOnCreate = lifecycleBClass.methods.first { it.name == "onCreate" }
-        val bInstructions = bOnCreate.implementation?.instructions
-
-        val d0Index = bInstructions?.indexOfFirst {
-            it is com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction &&
-            (it.reference as? com.android.tools.smali.dexlib2.iface.reference.MethodReference)?.let { method ->
-                method.definingClass == "Lbi1;" && method.name == "d0"
-            } == true
-        } ?: -1
-
-        if (d0Index != -1) {
-            bOnCreate.replaceInstruction(
-                d0Index,
-                "nop"
-            )
-        }
-
 
         // --- Hook 4: Hide sponsored works and promotional cards in feeds and detail screen ---
         val sponsoredClasses = listOf(

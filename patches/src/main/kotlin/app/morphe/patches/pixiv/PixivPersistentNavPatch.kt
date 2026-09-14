@@ -43,18 +43,6 @@ val pixivPersistentNavPatch: BytecodePatch = bytecodePatch(
             1,
             "invoke-static {p0, p1}, Lapp/morphe/extension/pixiv/navigation/PersistentNavHelper;->handleMainActivityIntent(Landroid/app/Activity;Landroid/content/Intent;)V"
         )
-
-        // --- Hook 3: MainActivity.onCreate to handle intent extras if MainActivity is recreated ---
-        val mainActivityClass = mutableClassDefBy("Ljp/pxv/android/MainActivity;")
-        val mainOnCreate = mainActivityClass.methods.first { it.name == "onCreate" }
-        mainOnCreate.addInstructions(
-            1,
-            """
-            invoke-virtual {p0}, Landroid/app/Activity;->getIntent()Landroid/content/Intent;
-            move-result-object v0
-            invoke-static {p0, v0}, Lapp/morphe/extension/pixiv/navigation/PersistentNavHelper;->handleMainActivityIntent(Landroid/app/Activity;Landroid/content/Intent;)V
-            """.trimIndent()
-        )
     }
 }
 
