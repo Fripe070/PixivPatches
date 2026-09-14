@@ -81,7 +81,7 @@ jobs:
           MPP_NAME=$(basename "$MPP_FILE")
           DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${MPP_NAME}"
           PAGE_URL="https://github.com/${{ github.repository }}/releases/tag/v${VERSION}"
-          NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          NOW=$(date -u +"%Y-%m-%dT%H:%M:%S")
 
           # Checkout main branch to commit the bundle update
           git checkout main || git checkout -b main origin/main
