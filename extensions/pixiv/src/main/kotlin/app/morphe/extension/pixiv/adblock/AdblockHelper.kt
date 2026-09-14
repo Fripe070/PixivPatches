@@ -36,6 +36,38 @@ object AdblockHelper {
             if (container != null) {
                 hideAdContainer(container)
             }
+
+            // Ensure BottomNavigationView in MainActivity receives WindowInsets bottom padding
+            // so it stays safely above the gesture navigation pill and clears rounded corners
+            applyMainActivityNavInsets(activity)
+        } catch (_: Throwable) {
+        }
+    }
+
+    @JvmStatic
+    fun applyMainActivityNavInsets(activity: Activity?) {
+        if (activity == null) return
+        try {
+            var navView = activity.findViewById<View>(0x7f0a00c0)
+            if (navView == null) {
+                val navId = activity.resources.getIdentifier("bottom_navigation", "id", activity.packageName)
+                if (navId != 0) navView = activity.findViewById(navId)
+            }
+            if (navView != null) {
+                navView.setOnApplyWindowInsetsListener { v, insets ->
+                    val bottomInset = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                        insets.getInsets(
+                            android.view.WindowInsets.Type.navigationBars() or android.view.WindowInsets.Type.displayCutout()
+                        ).bottom
+                    } else {
+                        @Suppress("DEPRECATION")
+                        insets.systemWindowInsetBottom
+                    }
+                    v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bottomInset)
+                    insets
+                }
+                navView.requestApplyInsets()
+            }
         } catch (_: Throwable) {
         }
     }
@@ -44,6 +76,20 @@ object AdblockHelper {
     fun hideAdContainer(adContainer: View?) {
         if (adContainer == null) return
         try {
+            // If adContainer is being utilized for persistent bottom navigation, maintain visibility
+            if (adContainer.getTag(0x7f0a00c0) == true || adContainer.findViewWithTag<View>("morphe_persistent_bottom_nav") != null) {
+                adContainer.visibility = View.VISIBLE
+                if (adContainer is ViewGroup) {
+                    for (i in adContainer.childCount - 1 downTo 0) {
+                        val child = adContainer.getChildAt(i)
+                        if (child.tag != "morphe_persistent_bottom_nav") {
+                            adContainer.removeViewAt(i)
+                        }
+                    }
+                }
+                return
+            }
+
             adContainer.visibility = View.GONE
             adContainer.layoutParams?.let { lp ->
                 lp.height = 0

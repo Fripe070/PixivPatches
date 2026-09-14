@@ -22,8 +22,9 @@ val pixivPersistentNavPatch: BytecodePatch = bytecodePatch(
 
     execute {
         // --- Hook 1: Hook base FragmentActivity (androidx.fragment.app.r.onStart) ---
-        // dv inherits androidx.fragment.app.r, covering SearchResultActivity and RankingActivity.
-        // Hooking onStart on r ensures the persistent navigation bar is attached as soon as any submenu activity's view hierarchy becomes active.
+        // dv inherits androidx.fragment.app.r, covering SearchResultActivity, RankingActivity,
+        // IllustDetailPagerActivity, CollectionActivity, BrowsingHistoryActivity, etc.
+        // PersistentNavHelper.isEligibleActivity filters out fullscreen viewers, settings, and MainActivity.
         val rClass = mutableClassDefBy("Landroidx/fragment/app/r;")
         val onStartMethod = rClass.methods.first { it.name == "onStart" && it.parameterTypes.isEmpty() }
 
@@ -31,6 +32,30 @@ val pixivPersistentNavPatch: BytecodePatch = bytecodePatch(
             1,
             "invoke-static {p0}, Lapp/morphe/extension/pixiv/navigation/PersistentNavHelper;->attachBottomNav(Landroid/app/Activity;)V"
         )
+
+        // --- Hook 2: ComponentActivity.onNewIntent (zj1.onNewIntent) for dynamic tab switching ---
+        // Handles CLEAR_TOP | SINGLE_TOP intents dispatched from submenu persistent nav bars to MainActivity.
+        val componentActivityClass = mutableClassDefByOrNull("Lzj1;")
+        val onNewIntentMethod = componentActivityClass?.methods?.firstOrNull {
+            it.name == "onNewIntent" && it.parameterTypes.size == 1 && it.parameterTypes[0] == "Landroid/content/Intent;"
+        }
+        onNewIntentMethod?.addInstructions(
+            1,
+            "invoke-static {p0, p1}, Lapp/morphe/extension/pixiv/navigation/PersistentNavHelper;->handleMainActivityIntent(Landroid/app/Activity;Landroid/content/Intent;)V"
+        )
+
+        // --- Hook 3: MainActivity.onCreate to handle intent extras if MainActivity is recreated ---
+        val mainActivityClass = mutableClassDefBy("Ljp/pxv/android/MainActivity;")
+        val mainOnCreate = mainActivityClass.methods.first { it.name == "onCreate" }
+        mainOnCreate.addInstructions(
+            1,
+            """
+            invoke-virtual {p0}, Landroid/app/Activity;->getIntent()Landroid/content/Intent;
+            move-result-object v0
+            invoke-static {p0, v0}, Lapp/morphe/extension/pixiv/navigation/PersistentNavHelper;->handleMainActivityIntent(Landroid/app/Activity;Landroid/content/Intent;)V
+            """.trimIndent()
+        )
     }
 }
+
 
