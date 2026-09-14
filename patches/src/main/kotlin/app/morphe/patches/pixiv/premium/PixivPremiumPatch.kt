@@ -31,18 +31,7 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
             """.trimIndent()
         )
 
-        // 2. Hook PixivProfile constructor: set isPremium = true
-        val pixivProfileClass = mutableClassDefBy("Ljp/pxv/android/domain/commonentity/PixivProfile;")
-        val profileCtor = pixivProfileClass.methods.first { it.name == "<init>" }
-        profileCtor.addInstructions(
-            1,
-            """
-            const/4 v0, 0x1
-            iput-boolean v0, p0, Ljp/pxv/android/domain/commonentity/PixivProfile;->isPremium:Z
-            """.trimIndent()
-        )
-
-        // 3. Hook ProfileApiModel.f()Z -> always return true
+        // 2. Hook ProfileApiModel.f()Z -> always return true
         val profileApiClass = mutableClassDefBy("Ljp/pxv/android/data/userstate/remote/dto/ProfileApiModel;")
         val fMethod = profileApiClass.methods.first { it.name == "f" && it.returnType == "Z" }
         fMethod.addInstructions(
@@ -50,26 +39,6 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
             """
             const/4 v0, 0x1
             return v0
-            """.trimIndent()
-        )
-
-        // 4. Hook tt7 (Pixiv Account Session Manager): force isPremium flag (h:Z) to true
-        val tt7Class = mutableClassDefBy("Ltt7;")
-        val tt7Ctor = tt7Class.methods.first { it.name == "<init>" }
-        tt7Ctor.addInstructions(
-            1,
-            """
-            const/4 v0, 0x1
-            iput-boolean v0, p0, Ltt7;->h:Z
-            """.trimIndent()
-        )
-
-        val tt7CMethod = tt7Class.methods.firstOrNull { it.name == "c" }
-        tt7CMethod?.addInstructions(
-            1,
-            """
-            const/4 v0, 0x1
-            iput-boolean v0, p0, Ltt7;->h:Z
             """.trimIndent()
         )
     }
