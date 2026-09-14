@@ -29,6 +29,10 @@ object AiFilterSettingsView {
             val accentColor = 0xFF0096FA.toInt() // Pixiv brand blue
             val redColor = 0xFFDC2626.toInt()
 
+            activity.window?.setSoftInputMode(
+                android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            )
+
             val root = LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
                 setBackgroundColor(bgColor)
@@ -74,6 +78,8 @@ object AiFilterSettingsView {
 
             // Scrollable content
             val scrollView = ScrollView(activity).apply {
+                isFillViewport = true
+                isSmoothScrollingEnabled = true
                 layoutParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.MATCH_PARENT
@@ -422,6 +428,19 @@ object AiFilterSettingsView {
                 cornerRadius = dpToPx(context, 6f)
             }
             layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+            setOnFocusChangeListener { view, hasFocus ->
+                if (hasFocus) {
+                    view.postDelayed({
+                        var parentView = view.parent
+                        while (parentView != null && parentView !is ScrollView) {
+                            parentView = parentView.parent
+                        }
+                        val scroll = parentView as? ScrollView
+                        val topOffset = (view.parent as? View)?.top ?: 0
+                        scroll?.smoothScrollTo(0, view.bottom + topOffset + 120)
+                    }, 250)
+                }
+            }
         }
         row.addView(editText)
 

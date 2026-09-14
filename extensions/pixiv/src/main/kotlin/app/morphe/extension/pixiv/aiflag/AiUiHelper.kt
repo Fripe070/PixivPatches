@@ -45,24 +45,112 @@ object AiUiHelper {
         }
     }
 
+    private const val TAG_DETAIL_AI_PILL = "morphe_detail_ai_pill"
+
     @JvmStatic
     fun onDetailImageBound(viewHolder: Any?, illust: Any?) {
-        // Baseline / stub for detail view floating AI badge (expanded in M2)
         try {
             if (viewHolder == null || illust == null) return
             val isAi = AiDetectionHelper.isAi(illust)
-            // Implementation baseline: will be fleshed out in M2
+
+            // Resolve itemView (CalcHeightViewHolder / RecyclerView.ViewHolder has field itemView)
+            val itemViewField = runCatching {
+                viewHolder.javaClass.getField("itemView")
+            }.getOrNull() ?: runCatching {
+                var c: Class<*>? = viewHolder.javaClass
+                var f: java.lang.reflect.Field? = null
+                while (c != null && f == null) {
+                    f = runCatching { c.getDeclaredField("itemView") }.getOrNull()
+                    c = c.superclass
+                }
+                f?.apply { isAccessible = true }
+            }.getOrNull()
+
+            val itemView = (itemViewField?.get(viewHolder) as? View) ?: (viewHolder as? View) ?: return
+            val parentGroup = itemView as? ViewGroup ?: (itemView.parent as? ViewGroup) ?: return
+            val context = parentGroup.context
+
+            if (isAi) {
+                showBadge(parentGroup, context)
+            } else {
+                hideBadge(parentGroup)
+            }
         } catch (_: Throwable) {
         }
     }
 
     @JvmStatic
     fun onDetailBottomBarBound(view: View?, illust: Any?) {
-        // Baseline / stub for detail bottom bar AI pill (expanded in M2)
         try {
             if (view == null || illust == null) return
             val isAi = AiDetectionHelper.isAi(illust)
-            // Implementation baseline: will be fleshed out in M2
+
+            // Look for title_text_view (id: 0x7f0a0597) in view or its hierarchy
+            val context = view.context
+            val resId = context.resources.getIdentifier("title_text_view", "id", context.packageName)
+            val titleView = if (resId != 0) {
+                view.findViewById<TextView>(resId)
+            } else {
+                view as? TextView
+            } ?: return
+
+            val parentLayout = titleView.parent as? ViewGroup ?: return
+
+            var pill = parentLayout.findViewWithTag<TextView>(TAG_DETAIL_AI_PILL)
+            if (isAi) {
+                if (pill == null) {
+                    pill = TextView(context).apply {
+                        tag = TAG_DETAIL_AI_PILL
+                        text = "AI"
+                        textSize = 10f
+                        typeface = Typeface.DEFAULT_BOLD
+                        setTextColor(Color.WHITE)
+
+                        val radius = dpToPx(context, 3f)
+                        val bg = GradientDrawable().apply {
+                            shape = GradientDrawable.RECTANGLE
+                            setColor(0xFFDC2626.toInt()) // Red-600
+                            cornerRadius = radius
+                        }
+                        background = bg
+
+                        val pxH = dpToPx(context, 5f).toInt()
+                        val pxV = dpToPx(context, 1f).toInt()
+                        setPadding(pxH, pxV, pxH, pxV)
+
+                        val margin = dpToPx(context, 4f).toInt()
+                        val lp = if (parentLayout is android.widget.LinearLayout) {
+                            android.widget.LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                gravity = Gravity.CENTER_VERTICAL
+                                leftMargin = margin
+                                marginStart = margin
+                            }
+                        } else {
+                            ViewGroup.MarginLayoutParams(
+                                ViewGroup.LayoutParams.WRAP_CONTENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT
+                            ).apply {
+                                leftMargin = margin
+                                marginStart = margin
+                            }
+                        }
+                        layoutParams = lp
+                    }
+                    // Insert right next to title view if possible
+                    val titleIndex = parentLayout.indexOfChild(titleView)
+                    if (titleIndex >= 0) {
+                        parentLayout.addView(pill, titleIndex + 1)
+                    } else {
+                        parentLayout.addView(pill)
+                    }
+                }
+                pill.visibility = View.VISIBLE
+            } else {
+                pill?.visibility = View.GONE
+            }
         } catch (_: Throwable) {
         }
     }
