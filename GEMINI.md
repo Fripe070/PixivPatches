@@ -32,27 +32,20 @@ When testing patches on the local Android emulator:
 Whenever code, extensions, or patch definitions are updated:
 1. **Local Build & Sanity Check**:
    - Compile locally using `.\build-mpp.ps1` to ensure syntax, bytecode hooks, and DEX bundling succeed without errors.
-2. **Version Bump (if releasing to Morphe Manager)**:
-   - Update version in `patches/build.gradle.kts` (e.g., `1.0.1`).
-   - Update `patches-bundle.json` with the new version and release download URL:
-     ```json
-     {
-       "created_at": "<ISO-Timestamp>",
-       "description": "<Summary of changes>",
-       "download_url": "https://github.com/Fripe070/PixivPatches/releases/download/v<version>/patches-<version>.mpp",
-       "signature_download_url": "",
-       "page_url": "https://github.com/Fripe070/PixivPatches/releases/tag/v<version>",
-       "version": "<version>"
-     }
-     ```
-3. **Commit & Push**:
+2. **Commit & Push**:
    - `git add -A`
    - `git commit --no-gpg-sign -m "feat/fix: <description>"`
    - `git push origin main`
-4. **Verify GitHub Actions**:
-   - Check `https://github.com/Fripe070/PixivPatches/actions`.
-   - Verify workflow `.github/workflows/build.yml` runs `./gradlew :patches:buildAndroid` and uploads artifact `pixiv-patches-bundle`.
-5. **Publish GitHub Release**:
-   - Create a tag matching the version (e.g. `v1.0.1`): `git tag v1.0.1; git push origin v1.0.1`.
-   - On GitHub (or via `gh release create v1.0.1 patches/build/libs/pixiv-patches-1.0.1.mpp --title "v1.0.1" --notes "<notes>"`), publish a Release and attach `pixiv-patches-<version>.mpp`.
-   - Morphe Manager will now automatically detect and load the updated patches.
+3. **Publish GitHub Release (Automated)**:
+   - Create and push a version tag (e.g. `v1.3.0`):
+     ```bash
+     git tag v1.3.0
+     git push origin v1.3.0
+     ```
+   - GitHub Actions (`.github/workflows/build.yml`) will automatically:
+     1. Build the Android `.mpp` patch bundle.
+     2. Create the GitHub Release and upload the `.mpp` asset.
+     3. Generate the updated `patches-bundle.json` with the new version and URLs.
+     4. Commit and push the manifest back to `main` with `[skip ci]`.
+   - Morphe Manager will immediately read the new release on next refresh.
+
