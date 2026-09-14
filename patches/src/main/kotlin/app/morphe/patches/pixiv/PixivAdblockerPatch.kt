@@ -48,11 +48,18 @@ val pixivAdblockerPatch: BytecodePatch = bytecodePatch(
             }
         }
 
-        // --- Hook 2: MainActivity.onCreate collapse ad_container (0x7f0a004f) immediately ---
+        // --- Hook 2: MainActivity.onCreate collapse ad_container (0x7f0a004f) after setContentView ---
         val mainActivityClass = mutableClassDefBy("Ljp/pxv/android/MainActivity;")
         val mainOnCreate = mainActivityClass.methods.first { it.name == "onCreate" }
+        val mainInstructions = mainOnCreate.implementation?.instructions
+        val setContentViewIndex = mainInstructions?.indexOfFirst {
+            it is com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction &&
+            (it.reference as? com.android.tools.smali.dexlib2.iface.reference.MethodReference)?.name == "setContentView"
+        } ?: -1
+
+        val hookInsertIndex = if (setContentViewIndex != -1) setContentViewIndex + 1 else 1
         mainOnCreate.addInstructions(
-            1,
+            hookInsertIndex,
             "invoke-static/range {p0 .. p0}, Lapp/morphe/extension/pixiv/adblock/AdblockHelper;->collapseMainActivityBanner(Landroid/app/Activity;)V"
         )
 
