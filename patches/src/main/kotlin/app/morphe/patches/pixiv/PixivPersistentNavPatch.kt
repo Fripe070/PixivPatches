@@ -8,7 +8,7 @@ import app.morphe.patcher.patch.bytecodePatch
 
 val pixivPersistentNavPatch: BytecodePatch = bytecodePatch(
     name = "Pixiv Persistent Navigation",
-    description = "Keeps the primary bottom navigation bar visible, docked, and functional when navigating into submenus and drill-down views.",
+    description = "Keeps the primary bottom navigation bar visible, docked, and functional when navigating into submenus and drill-down views such as SearchResultActivity and RankingActivity.",
     default = true
 ) {
     compatibleWith(
@@ -22,8 +22,8 @@ val pixivPersistentNavPatch: BytecodePatch = bytecodePatch(
 
     execute {
         // --- Hook 1: Hook base FragmentActivity (androidx.fragment.app.r.onStart) ---
-        // dv inherits androidx.fragment.app.r. Hooking onStart on r ensures the persistent
-        // navigation bar is attached as soon as any submenu activity's view hierarchy becomes active.
+        // dv inherits androidx.fragment.app.r, covering SearchResultActivity and RankingActivity.
+        // Hooking onStart on r ensures the persistent navigation bar is attached as soon as any submenu activity's view hierarchy becomes active.
         val rClass = mutableClassDefBy("Landroidx/fragment/app/r;")
         val onStartMethod = rClass.methods.first { it.name == "onStart" && it.parameterTypes.isEmpty() }
 

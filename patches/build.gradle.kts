@@ -1,11 +1,11 @@
 group = "app.morphe"
-version = "1.0.2"
+version = "1.1.0"
 
 
 patches {
     about {
         name = "Pixiv Patches"
-        description = "Morphe patches for Pixiv Android (AI flagger, adblocking, persistent navigation)"
+        description = "Morphe patches for Pixiv Android (AI flagger, adblocking, persistent navigation, downloader, premium unlock, OLED theme, analytics blocker)"
         source = "https://github.com/Fripe070/PixivPatches"
         author = "Fripe070"
         contact = "na"
