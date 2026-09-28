@@ -24,13 +24,13 @@ Use `.\build-mpp.ps1` for local validation. It compiles extension Kotlin with `k
 ```powershell
 .\build-mpp.ps1
 # Or with an explicit version override:
-.\build-mpp.ps1 -Version "1.3.0"
+.\build-mpp.ps1 -Version "1.4.0"
 ```
 
 ### Secondary: Gradle Multi-Project Build (CI Pipeline)
 Used in GitHub Actions. Requires network access or Gradle cache:
 ```bash
-./gradlew :patches:buildAndroid -Pversion=1.3.0 --no-daemon
+./gradlew :patches:buildAndroid -Pversion=1.4.0 --no-daemon
 ```
 
 ## Emulator & Device Testing Procedure
@@ -41,7 +41,7 @@ Used in GitHub Actions. Requires network access or Gradle cache:
    - Target Device: `emulator-5554` (`Pixel_8_API_35`)
 2. **Build & Patch**:
    - Build MPP: `.\build-mpp.ps1`
-   - Patch APK: `java -jar tools\morphe-cli.jar patch -p patches\build\libs\pixiv-patches-1.3.0.mpp -o pixiv-patched.apk pixiv-base.apk`
+   - Patch APK: `java -jar tools\morphe-cli.jar patch -p patches\build\libs\pixiv-patches-1.4.0.mpp -o pixiv-patched.apk pixiv-base.apk`
 3. **Deploy & Launch**:
    - Install: `& $adb -s emulator-5554 install -r -d pixiv-patched.apk`
    - Launch: `& $adb -s emulator-5554 shell monkey -p jp.pxv.android -c android.intent.category.LAUNCHER 1`
@@ -55,23 +55,23 @@ Whenever code, extensions, or patch definitions are ready for a new release:
 1. **Update Version**:
    - In `patches/build.gradle.kts`, update the default fallback version:
      ```kotlin
-     version = (project.findProperty("version") as? String) ?: "1.3.0"
+     version = (project.findProperty("version") as? String) ?: "1.4.0"
      ```
 2. **Local Build & Sanity Check**:
    - Run `.\build-mpp.ps1` to ensure compilation, bytecode hooks, DEX generation, and `dexdump` verification succeed with code 0.
 3. **Commit & Push to Main**:
    - `git add -A`
-   - `git commit --no-gpg-sign -m "chore(release): bump version to 1.3.0"`
+   - `git commit --no-gpg-sign -m "chore(release): bump version to 1.4.0"`
    - `git push origin main`
 4. **Tag & Trigger Automated GitHub Actions Release**:
    - Create and push a matching version tag:
      ```bash
-     git tag v1.3.0
-     git push origin v1.3.0
+     git tag v1.4.0
+     git push origin v1.4.0
      ```
    - GitHub Actions (`.github/workflows/build.yml`) will automatically:
-     1. Build the Android `.mpp` patch bundle with `-Pversion=1.3.0`.
-     2. Create the GitHub Release and upload `pixiv-patches-1.3.0.mpp`.
+     1. Build the Android `.mpp` patch bundle with `-Pversion=1.4.0`.
+     2. Create the GitHub Release and upload `pixiv-patches-1.4.0.mpp`.
      3. Generate `patches-bundle.json` with matching version and download URLs.
      4. Commit and push the manifest back to `main` with `[skip ci]`.
    - Morphe Manager will immediately resolve the new release on next refresh.

@@ -37,7 +37,7 @@ Tap the button below from an Android device with Morphe Manager installed:
 | 💎 **Premium Features** | Unlocks popularity search sorting (`popular_desc`) without a subscription and removes user mute limits. |
 | 🔒 **Analytics Blocker** | Blocks Firebase Analytics, Google Measurement telemetry, and Pixiv internal tracking for better privacy. |
 | 🌙 **OLED Dark Theme** | Overrides dark gray backgrounds with true pitch-black (`#000000`) for OLED displays and battery savings. |
-| 🔍 **Enhanced Viewer & Zoom** | Enables instant pinch-to-zoom and pan with progressive high-resolution image loading. |
+| 🔍 **Enhanced Viewer & Zoom** | Shows standard-resolution artwork instantly as a placeholder while full-resolution loads, with a discreet HD loading indicator and seamless zoom preservation. |
 
 ---
 
@@ -77,7 +77,7 @@ To patch an APK directly using the Morphe CLI:
 
 ```bash
 java -jar tools/morphe-cli.jar patch \
-  --patches=patches/build/libs/pixiv-patches-1.3.0.mpp \
+  --patches=patches/build/libs/pixiv-patches-1.4.0.mpp \
   --out=pixiv-patched.apk \
   pixiv-base.apk
 ```

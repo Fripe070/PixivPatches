@@ -2,7 +2,6 @@ package app.morphe.extension.pixiv.viewer
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
-import android.animation.ValueAnimator
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -19,20 +18,13 @@ import android.os.Looper
 import android.util.LruCache
 import android.util.TypedValue
 import android.view.Gravity
-import android.view.MotionEvent
-import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.ViewGroup
-import android.view.Window
-import android.view.animation.DecelerateInterpolator
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import java.lang.reflect.InvocationHandler
-import java.lang.reflect.Method
-import java.lang.reflect.Proxy
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
@@ -40,196 +32,15 @@ import java.util.concurrent.Executors
 object EnhancedViewerHelper {
 
     private const val TAG_LOADING_BADGE = "morphe_hd_loading_badge"
-    private const val TAG_ATTACHED_ZOOM = 0x7f099991
-    private const val TAG_ATTACHED_DISMISS = 0x7f099992
 
-    // Memory cache for standard-resolution artwork bitmaps
+    // Memory cache for standard-resolution artwork bitmaps (keyed by URL)
     private val placeholderCache = LruCache<String, Bitmap>(50)
-    private var lastDetailBitmap: Bitmap? = null
-    private var lastDetailWorkId: Long = 0L
 
     private val executor = Executors.newFixedThreadPool(2)
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    // Tracks saved user matrices during full-res load: target identity hashCode -> Matrix
-    private val savedMatrices = HashMap<Int, Matrix>()
-
     // ------------------------------------------------------------------------
-    // 1. In-Place Detail Page Quick-Peek Zoom (Instagram Style)
-    // ------------------------------------------------------------------------
-
-    @JvmStatic
-    fun onDetailImageBound(viewHolder: Any?, illust: Any?) {
-        try {
-            if (viewHolder == null || illust == null) return
-
-            val itemView = getFieldValue(viewHolder, "itemView") as? View
-                ?: (viewHolder as? View) ?: return
-            val context = itemView.context ?: return
-
-            val resId = context.resources.getIdentifier("image_view", "id", context.packageName)
-            val imageView = (if (resId != 0) itemView.findViewById<ImageView>(resId) else null)
-                ?: (getFieldValue(viewHolder, "imageView") as? ImageView)
-                ?: return
-
-            // Cache standard bitmap for instant placeholder in fullscreen
-            cacheDetailBitmap(illust, imageView)
-
-            if (imageView.getTag(TAG_ATTACHED_ZOOM) == true) return
-            imageView.setTag(TAG_ATTACHED_ZOOM, true)
-
-            attachQuickPeekZoom(imageView, itemView)
-        } catch (_: Throwable) {
-        }
-    }
-
-    private fun cacheDetailBitmap(illust: Any, imageView: ImageView) {
-        try {
-            val workId = runCatching {
-                illust.javaClass.getMethod("getId").invoke(illust) as? Long
-            }.getOrNull() ?: 0L
-
-            val url = getStandardImageUrl(illust, 0)
-            imageView.post {
-                val d = imageView.drawable
-                if (d is BitmapDrawable && d.bitmap != null && !d.bitmap.isRecycled) {
-                    val bmp = d.bitmap
-                    if (url != null) placeholderCache.put(url, bmp)
-                    lastDetailBitmap = bmp
-                    lastDetailWorkId = workId
-                }
-            }
-        } catch (_: Throwable) {
-        }
-    }
-
-    private fun attachQuickPeekZoom(targetView: ImageView, containerView: View) {
-        val context = targetView.context ?: return
-        var scaleFactor = 1.0f
-        var focusX = 0f
-        var focusY = 0f
-        var isPinching = false
-        var activePointerId = MotionEvent.INVALID_POINTER_ID
-        var lastTouchX = 0f
-        var lastTouchY = 0f
-        var transX = 0f
-        var transY = 0f
-
-        val scaleDetector = ScaleGestureDetector(context, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-            override fun onScale(detector: ScaleGestureDetector): Boolean {
-                val scale = detector.scaleFactor
-                scaleFactor *= scale
-                scaleFactor = scaleFactor.coerceIn(1.0f, 4.5f)
-
-                targetView.scaleX = scaleFactor
-                targetView.scaleY = scaleFactor
-
-                focusX = detector.focusX
-                focusY = detector.focusY
-                targetView.pivotX = focusX
-                targetView.pivotY = focusY
-                return true
-            }
-
-            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-                isPinching = true
-                containerView.parent?.requestDisallowInterceptTouchEvent(true)
-                targetView.elevation = dpToPx(context, 16f)
-                (targetView.parent as? ViewGroup)?.clipChildren = false
-                return true
-            }
-        })
-
-        targetView.setOnTouchListener { _, event ->
-            scaleDetector.onTouchEvent(event)
-
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    activePointerId = event.getPointerId(0)
-                    lastTouchX = event.x
-                    lastTouchY = event.y
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (isPinching && event.pointerCount >= 2) {
-                        containerView.parent?.requestDisallowInterceptTouchEvent(true)
-                        val idx = event.findPointerIndex(activePointerId)
-                        if (idx != -1) {
-                            val x = event.getX(idx)
-                            val y = event.getY(idx)
-                            val dx = x - lastTouchX
-                            val dy = y - lastTouchY
-                            transX += dx
-                            transY += dy
-                            targetView.translationX = transX
-                            targetView.translationY = transY
-                            lastTouchX = x
-                            lastTouchY = y
-                        }
-                    }
-                }
-                MotionEvent.ACTION_POINTER_UP -> {
-                    if (event.pointerCount <= 2 && isPinching) {
-                        resetQuickPeek(targetView, containerView) {
-                            scaleFactor = 1.0f
-                            transX = 0f
-                            transY = 0f
-                            isPinching = false
-                        }
-                    }
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    if (isPinching) {
-                        resetQuickPeek(targetView, containerView) {
-                            scaleFactor = 1.0f
-                            transX = 0f
-                            transY = 0f
-                            isPinching = false
-                        }
-                        return@setOnTouchListener true
-                    }
-                }
-            }
-
-            if (isPinching) true else false
-        }
-    }
-
-    private fun resetQuickPeek(
-        targetView: ImageView,
-        containerView: View,
-        onComplete: () -> Unit
-    ) {
-        val startScale = targetView.scaleX
-        val startTransX = targetView.translationX
-        val startTransY = targetView.translationY
-
-        ValueAnimator.ofFloat(0f, 1f).apply {
-            duration = 200
-            interpolator = DecelerateInterpolator()
-            addUpdateListener { anim ->
-                val fraction = anim.animatedFraction
-                targetView.scaleX = startScale + (1.0f - startScale) * fraction
-                targetView.scaleY = startScale + (1.0f - startScale) * fraction
-                targetView.translationX = startTransX * (1.0f - fraction)
-                targetView.translationY = startTransY * (1.0f - fraction)
-            }
-            addListener(object : AnimatorListenerAdapter() {
-                override fun onAnimationEnd(animation: Animator) {
-                    targetView.scaleX = 1.0f
-                    targetView.scaleY = 1.0f
-                    targetView.translationX = 0f
-                    targetView.translationY = 0f
-                    targetView.elevation = 0f
-                    containerView.parent?.requestDisallowInterceptTouchEvent(false)
-                    onComplete()
-                }
-            })
-            start()
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    // 2. Fullscreen Instant Placeholder & Discreet Loading Badge
+    // 1. Fullscreen Instant Placeholder & Discreet Loading Badge
     // ------------------------------------------------------------------------
 
     @JvmStatic
@@ -259,14 +70,11 @@ object EnhancedViewerHelper {
 
             val placeholderUrl = if (illust != null) getStandardImageUrl(illust, pageIndex) else null
 
-            // Instant memory cache hit check
-            var bmp: Bitmap? = if (placeholderUrl != null) placeholderCache.get(placeholderUrl) else null
-            if (bmp == null && pageIndex == 0 && lastDetailBitmap != null && !lastDetailBitmap!!.isRecycled) {
-                bmp = lastDetailBitmap
-            }
+            // Check memory cache for a previously-loaded standard-res bitmap
+            val cachedBmp: Bitmap? = if (placeholderUrl != null) placeholderCache.get(placeholderUrl) else null
 
-            if (bmp != null) {
-                applyPlaceholder(imageView, photoAttacher, bmp)
+            if (cachedBmp != null && !cachedBmp.isRecycled) {
+                applyPlaceholder(imageView, photoAttacher, cachedBmp)
             } else if (!placeholderUrl.isNullOrEmpty()) {
                 fetchPlaceholderAsync(placeholderUrl, imageView, photoAttacher)
             }
@@ -370,7 +178,7 @@ object EnhancedViewerHelper {
     }
 
     // ------------------------------------------------------------------------
-    // 3. Full-Res Swap & Matrix Preservation
+    // 2. Full-Res Swap & Matrix Preservation
     // ------------------------------------------------------------------------
 
     @JvmStatic
@@ -429,152 +237,6 @@ object EnhancedViewerHelper {
                 }
             }
         } catch (_: Throwable) {
-        }
-    }
-
-    // ------------------------------------------------------------------------
-    // 4. Swipe-Down to Dismiss Fullscreen Viewer
-    // ------------------------------------------------------------------------
-
-    @JvmStatic
-    fun onFullScreenCreated(activity: Activity?) {
-        try {
-            if (activity == null) return
-            val window = activity.window ?: return
-
-            if (activity.window.decorView.getTag(TAG_ATTACHED_DISMISS) == true) return
-            activity.window.decorView.setTag(TAG_ATTACHED_DISMISS, true)
-
-            val originalCallback = window.callback ?: return
-            val contentView = activity.findViewById<View>(android.R.id.content) ?: return
-            val screenHeight = activity.resources.displayMetrics.heightPixels.toFloat()
-
-            var initialY = 0f
-            var initialX = 0f
-            var isDismissing = false
-            var isEligible = false
-
-            val proxy = Proxy.newProxyInstance(
-                window.javaClass.classLoader,
-                arrayOf(Window.Callback::class.java),
-                object : InvocationHandler {
-                    override fun invoke(proxy: Any?, method: Method, args: Array<out Any?>?): Any? {
-                        if (method.name == "dispatchTouchEvent" && args != null && args.isNotEmpty()) {
-                            val event = args[0] as? MotionEvent
-                            if (event != null) {
-                                when (event.actionMasked) {
-                                    MotionEvent.ACTION_DOWN -> {
-                                        initialX = event.rawX
-                                        initialY = event.rawY
-                                        isDismissing = false
-                                        isEligible = isCurrentPageAtBaseZoom(activity)
-                                    }
-                                    MotionEvent.ACTION_MOVE -> {
-                                        if (isEligible && event.pointerCount == 1) {
-                                            val dy = event.rawY - initialY
-                                            val dx = event.rawX - initialX
-
-                                            if (dy > 35f && dy > Math.abs(dx) * 1.3f) {
-                                                isDismissing = true
-                                                val dragY = dy - 35f
-                                                contentView.translationY = dragY
-
-                                                val progress = (dragY / (screenHeight * 0.5f)).coerceIn(0f, 1f)
-                                                val scale = 1f - (progress * 0.12f)
-                                                contentView.scaleX = scale
-                                                contentView.scaleY = scale
-                                                activity.window.decorView.alpha = 1f - (progress * 0.5f)
-                                                return true
-                                            }
-                                        }
-                                    }
-                                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                        if (isDismissing) {
-                                            val currentTransY = contentView.translationY
-                                            val dismissThreshold = dpToPx(activity, 130f)
-
-                                            if (currentTransY > dismissThreshold) {
-                                                contentView.animate()
-                                                    .translationY(screenHeight)
-                                                    .alpha(0f)
-                                                    .setDuration(160)
-                                                    .setInterpolator(DecelerateInterpolator())
-                                                    .withEndAction {
-                                                        activity.finish()
-                                                        activity.overridePendingTransition(0, 0)
-                                                    }
-                                                    .start()
-                                            } else {
-                                                contentView.animate()
-                                                    .translationY(0f)
-                                                    .scaleX(1f)
-                                                    .scaleY(1f)
-                                                    .setDuration(180)
-                                                    .setInterpolator(DecelerateInterpolator())
-                                                    .start()
-                                                activity.window.decorView.animate()
-                                                    .alpha(1f)
-                                                    .setDuration(180)
-                                                    .start()
-                                            }
-                                            isDismissing = false
-                                            isEligible = false
-                                            return true
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        // Forward all other callback calls
-                        return if (args != null) {
-                            method.invoke(originalCallback, *args)
-                        } else {
-                            method.invoke(originalCallback)
-                        }
-                    }
-                }
-            ) as Window.Callback
-
-            window.callback = proxy
-        } catch (_: Throwable) {
-        }
-    }
-
-    private fun isCurrentPageAtBaseZoom(activity: Activity): Boolean {
-        return try {
-            val viewPagerResId = activity.resources.getIdentifier("illust_view_pager", "id", activity.packageName)
-            val viewPager = (if (viewPagerResId != 0) activity.findViewById<View>(viewPagerResId) else null) as? ViewGroup
-                ?: return true
-
-            val currentItem = runCatching {
-                viewPager.javaClass.getMethod("getCurrentItem").invoke(viewPager) as? Int
-            }.getOrNull() ?: 0
-
-            var currentImageView: ImageView? = null
-            for (i in 0 until viewPager.childCount) {
-                val child = viewPager.getChildAt(i)
-                val iv = getChildImageView(child as? ViewGroup)
-                if (iv != null && (iv.tag as? Int) == currentItem) {
-                    currentImageView = iv
-                    break
-                }
-            }
-
-            if (currentImageView == null) return true
-
-            val onTouchListener = getFieldValue(currentImageView, "mOnTouchListener")
-                ?: getFieldValue(currentImageView, "onTouchListener")
-            if (onTouchListener != null) {
-                val scale = runCatching {
-                    onTouchListener.javaClass.getMethod("d").invoke(onTouchListener) as? Float
-                }.getOrNull() ?: 1.0f
-                scale <= 1.05f
-            } else {
-                true
-            }
-        } catch (_: Throwable) {
-            true
         }
     }
 
