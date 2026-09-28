@@ -39,6 +39,8 @@ Each patch is independently toggleable in Morphe Manager or via Morphe CLI:
 | `PixivPremiumPatch` | **Pixiv Premium Features** | `Enabled` | Search, Settings, Account | Emulates client-side Pixiv Premium membership status, unlocks popularity sorting (`popular_desc`) in search without paywalls, and bypasses user mute limits. |
 | `PixivAnalyticsBlockerPatch` | **Pixiv Analytics Blocker** | `Enabled` | App-wide | Neutralizes Firebase Analytics, Google Measurement telemetry, and internal Pixiv event dispatchers for enhanced privacy. |
 | `PixivOledThemePatch` | **Pixiv OLED Dark Theme** | `Enabled` | App-wide Dark Mode | Overrides dark gray surface and background colors with pure pitch black (`#ff000000`) for OLED battery savings and true high-contrast dark theme. |
+| `PixivEnhancedViewerPatch` | **Pixiv Enhanced Viewer & Instant Zoom** | `Enabled` | Artwork Detail, Fullscreen Viewer | Displays standard-res placeholder while full-res loads, enables instant pinch-to-zoom/pan preserving zoom coordinates upon high-res load, discreet HD loading indicator, swipe-down dismiss, and quick-peek in-place zoom on detail screen. |
+
 
 ---
 

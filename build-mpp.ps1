@@ -75,8 +75,10 @@ Write-Host "[2/5] Compiling extension Kotlin sources..." -ForegroundColor Yellow
 $ExtSrcFiles = Get-ChildItem -Path "$RepoRoot\extensions\pixiv\src\main\kotlin" -Filter "*.kt" -Recurse -File
 if ($ExtSrcFiles.Count -gt 0) {
     & $Kotlinc ($ExtSrcFiles | ForEach-Object { $_.FullName }) -cp $AndroidJar -d $ExtClasses.FullName
+    if ($LASTEXITCODE -ne 0) { throw "kotlinc failed to compile extension sources." }
     $ExtClassFiles = (Get-ChildItem -Path $ExtClasses.FullName -Filter "*.class" -Recurse -File | ForEach-Object { $_.FullName })
     & $D8Bat --lib $AndroidJar --output $ExtDex.FullName $ExtClassFiles $KotlinStdlib
+    if ($LASTEXITCODE -ne 0) { throw "d8 failed to dex extension classes." }
     Copy-Item "$($ExtDex.FullName)\classes.dex" "$($StagingExt.FullName)\pixiv.mpe" -Force
 }
 
@@ -86,8 +88,10 @@ $PatchSrcFiles = Get-ChildItem -Path "$RepoRoot\patches\src\main\kotlin" -Filter
 if ($PatchSrcFiles.Count -eq 0) { throw "No patch sources found in patches\src\main\kotlin" }
 
 & $Kotlinc -jvm-target 11 ($PatchSrcFiles | ForEach-Object { $_.FullName }) -cp $MorpheCli -d $PatchClasses.FullName
+if ($LASTEXITCODE -ne 0) { throw "kotlinc failed to compile patch sources." }
 $PatchClassFiles = (Get-ChildItem -Path $PatchClasses.FullName -Filter "*.class" -Recurse -File | ForEach-Object { $_.FullName })
 & $D8Bat --lib $AndroidJar --output $PatchDex.FullName $PatchClassFiles
+if ($LASTEXITCODE -ne 0) { throw "d8 failed to dex patch classes." }
 
 Copy-Item "$($PatchDex.FullName)\classes.dex" "$BuildDir\staging\classes.dex" -Force
 Copy-Item "$($PatchClasses.FullName)\*" "$BuildDir\staging\" -Recurse -Force
