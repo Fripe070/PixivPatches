@@ -1,5 +1,5 @@
 group = "app.morphe"
-version = (project.findProperty("version") as? String) ?: "1.4.0"
+version = (project.findProperty("version") as? String) ?: "1.4.1"
 
 
 patches {

@@ -77,7 +77,7 @@ To patch an APK directly using the Morphe CLI:
 
 ```bash
 java -jar tools/morphe-cli.jar patch \
-  --patches=patches/build/libs/pixiv-patches-1.4.0.mpp \
+  --patches=patches/build/libs/pixiv-patches-*.mpp \
   --out=pixiv-patched.apk \
   pixiv-base.apk
 ```

@@ -24,13 +24,13 @@ Use `.\build-mpp.ps1` for local validation. It compiles extension Kotlin with `k
 ```powershell
 .\build-mpp.ps1
 # Or with an explicit version override:
-.\build-mpp.ps1 -Version "1.4.0"
+.\build-mpp.ps1 -Version "<version>"
 ```
 
 ### Secondary: Gradle Multi-Project Build (CI Pipeline)
 Used in GitHub Actions. Requires network access or Gradle cache:
 ```bash
-./gradlew :patches:buildAndroid -Pversion=1.4.0 --no-daemon
+./gradlew :patches:buildAndroid -Pversion=<version> --no-daemon
 ```
 
 ## Emulator & Device Testing Procedure
@@ -41,13 +41,32 @@ Used in GitHub Actions. Requires network access or Gradle cache:
    - Target Device: `emulator-5554` (`Pixel_8_API_35`)
 2. **Build & Patch**:
    - Build MPP: `.\build-mpp.ps1`
-   - Patch APK: `java -jar tools\morphe-cli.jar patch -p patches\build\libs\pixiv-patches-1.4.0.mpp -o pixiv-patched.apk pixiv-base.apk`
+   - Patch APK: `java -jar tools\morphe-cli.jar patch -p (Get-Item patches\build\libs\*.mpp).FullName -o pixiv-patched.apk pixiv-base.apk`
 3. **Deploy & Launch**:
    - Install: `& $adb -s emulator-5554 install -r -d pixiv-patched.apk`
    - Launch: `& $adb -s emulator-5554 shell monkey -p jp.pxv.android -c android.intent.category.LAUNCHER 1`
 4. **Verification & Debugging**:
-   - Live Logs: `& $adb -s emulator-5554 logcat -c; & $adb -s emulator-5554 logcat -v time | Select-String "Pixiv|Morphe"`
-   - Screenshot: `& $adb -s emulator-5554 exec-out screencap -p > screenshot.png`
+   - **Live Logs**:
+     ```powershell
+     & $adb -s emulator-5554 logcat -c; & $adb -s emulator-5554 logcat -v time | Select-String "Pixiv|Morphe"
+     ```
+   - **Screenshot Conventions & Capture**:
+     - **Storage Location**: Always save screenshots inside the `captures/` directory (which is gitignored). **Never dump screenshots, image files, or UI hierarchy JSON in the root workspace directory.**
+     - **Directory Setup**: Ensure the directory exists before capturing:
+       ```powershell
+       New-Item -ItemType Directory -Force -Path captures | Out-Null
+       ```
+     - **Naming Pattern**: Name files descriptively using feature and state prefixes:
+       `captures/<feature>_<screen-or-state>_<detail>.png`
+       - ✅ **Good**: `captures/ai_banner_detail_top.png`, `captures/viewer_pinch_zoom_hd.png`, `captures/adblock_feed_home.png`
+       - ❌ **Bad**: `screenshot.png`, `screencap.png`, `test.png`, `screenshot_main.png` (prevents cross-agent overwrite collisions and ambiguities)
+     - **Capture Command (with Live Preview Mirror)**:
+       Save to a descriptive file for agent reasoning and mirror to `captures/latest.png` (or `captures/<feature>_latest.png`) so a user's pinned preview tab auto-refreshes in real time:
+       ```powershell
+       & $adb -s emulator-5554 exec-out screencap -p > captures/<feature>_<screen>_<detail>.png
+       Copy-Item captures/<feature>_<screen>_<detail>.png captures/latest.png -Force
+       ```
+     - **Hygiene**: Delete or archive transient captures after verifying changes to prevent disk clutter.
 
 ## Step-by-Step GitHub Release Procedure
 Whenever code, extensions, or patch definitions are ready for a new release:
@@ -55,23 +74,23 @@ Whenever code, extensions, or patch definitions are ready for a new release:
 1. **Update Version**:
    - In `patches/build.gradle.kts`, update the default fallback version:
      ```kotlin
-     version = (project.findProperty("version") as? String) ?: "1.4.0"
+     version = (project.findProperty("version") as? String) ?: "<new-version>"
      ```
 2. **Local Build & Sanity Check**:
    - Run `.\build-mpp.ps1` to ensure compilation, bytecode hooks, DEX generation, and `dexdump` verification succeed with code 0.
 3. **Commit & Push to Main**:
-   - `git add -A`
-   - `git commit --no-gpg-sign -m "chore(release): bump version to 1.4.0"`
+   - `git add <relevant files>` (do not stage in-progress parallel agent work)
+   - `git commit --no-gpg-sign -m "chore(release): bump version to <version>"`
    - `git push origin main`
 4. **Tag & Trigger Automated GitHub Actions Release**:
    - Create and push a matching version tag:
      ```bash
-     git tag v1.4.0
-     git push origin v1.4.0
+     git tag v<version>
+     git push origin v<version>
      ```
    - GitHub Actions (`.github/workflows/build.yml`) will automatically:
-     1. Build the Android `.mpp` patch bundle with `-Pversion=1.4.0`.
-     2. Create the GitHub Release and upload `pixiv-patches-1.4.0.mpp`.
+     1. Build the Android `.mpp` patch bundle with `-Pversion=<version>`.
+     2. Create the GitHub Release and upload `pixiv-patches-<version>.mpp`.
      3. Generate `patches-bundle.json` with matching version and download URLs.
      4. Commit and push the manifest back to `main` with `[skip ci]`.
    - Morphe Manager will immediately resolve the new release on next refresh.
