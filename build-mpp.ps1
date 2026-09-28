@@ -2,6 +2,9 @@
 .SYNOPSIS
     Builds the Pixiv Morphe .mpp patch bundle locally and offline.
 #>
+param(
+    [string]$Version = ""
+)
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = $PSScriptRoot
@@ -92,11 +95,13 @@ Copy-Item "$($PatchClasses.FullName)\*" "$BuildDir\staging\" -Recurse -Force
 # 6. Manifest & Bundle
 Write-Host "[4/5] Packaging .mpp bundle..." -ForegroundColor Yellow
 $PatchesGradle = Join-Path $RepoRoot "patches\build.gradle.kts"
-$PatchesVersion = "1.0.2"
-if (Test-Path $PatchesGradle) {
-    $verMatch = Select-String -Path $PatchesGradle -Pattern 'version\s*=\s*"([^"]+)"'
-    if ($verMatch -and $verMatch.Matches[0].Groups[1].Value) {
-        $PatchesVersion = $verMatch.Matches[0].Groups[1].Value
+$PatchesVersion = "1.3.0"
+if ($Version) {
+    $PatchesVersion = $Version
+} elseif (Test-Path $PatchesGradle) {
+    $gradleContent = Get-Content $PatchesGradle -Raw
+    if ($gradleContent -match '"(\d+\.\d+\.\d+)"') {
+        $PatchesVersion = $Matches[1]
     }
 }
 
@@ -118,7 +123,6 @@ if (Test-Path $OutputMpp) { Remove-Item $OutputMpp -Force }
 
 & jar cvfm $OutputMpp "$StagingMeta\MANIFEST.MF" -C "$BuildDir\staging" .
 Copy-Item $OutputMpp "$RepoRoot\pixiv-patches.mpp" -Force
-Copy-Item $OutputMpp "$RepoRoot\patches\build\libs\pixiv-patches-1.0.0.mpp" -Force
 Copy-Item $OutputMpp "$RepoRoot\patches-$PatchesVersion.mpp" -Force
 
 # 7. Verification

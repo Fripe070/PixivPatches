@@ -32,7 +32,7 @@ Each patch is independently toggleable in Morphe Manager or via Morphe CLI:
 
 | Patch ID | Display Name | Default State | Target Scope | Description |
 | :--- | :--- | :---: | :--- | :--- |
-| `PixivAiFlaggerPatch` | **Pixiv AI Work Flagger** | `Enabled` | Feed, Search, Rankings, Detail, Settings | Identifies AI-generated works; dims thumbnails with red `[AI]` badge (or hides completely); adds top-left floating `[AI]` badge on artwork viewer; adds `[AI]` pill next to title & artist; includes in-app settings with keyboard-safe tag editor. |
+| `PixivAiFlaggerPatch` | **Pixiv AI Work Flagger** | `Enabled` | Feed, Search, Rankings, Detail, Settings | Identifies AI-generated works; dims thumbnails with red `[AI]` badge (or hides completely); displays a fixed full-width warning banner below the top toolbar on artwork detail; adds `[AI]` pill next to title & artist; includes in-app settings with keyboard-safe tag editor. |
 | `PixivAdblockerPatch` | **Pixiv Adblocker** | `Enabled` | Global Activities, Feeds | Collapses bottom AdMob / Google Ads banner without leaving dead layout padding; suppresses "Rate this app" review prompt; removes sponsored cards and promotional carousels. |
 | `PixivPersistentNavPatch` | **Pixiv Persistent Navigation** | `Enabled` | Submenus, Search Results, Rankings | Keeps the primary bottom navigation bar (`Home`, `Search`, `New`, `Notifications`, `My Page`) docked and functional when navigating into submenus and drill-down views. |
 | `PixivDownloaderPatch` | **Pixiv Downloader** | `Enabled` | Detail View | Adds an in-app download action button in the illustration and manga detail bar to save full-resolution artwork directly to Photos with metadata filenames. |
@@ -65,7 +65,7 @@ Each patch is independently toggleable in Morphe Manager or via Morphe CLI:
 ```
 The compiled patch bundle will be generated at:
 ```
-patches/build/libs/pixiv-patches-1.0.0.mpp
+patches/build/libs/pixiv-patches-1.3.0.mpp
 ```
 
 ### Method B: Offline Local Build Script
@@ -88,13 +88,13 @@ To patch the official Pixiv APK directly using Morphe CLI:
 
 ### 1. Check Available Patches
 ```bash
-java -jar tools/morphe-cli.jar list-patches --patches=patches/build/libs/pixiv-patches-1.0.0.mpp
+java -jar tools/morphe-cli.jar list-patches --patches=patches/build/libs/pixiv-patches-1.3.0.mpp
 ```
 
 ### 2. Apply All Default Patches
 ```bash
 java -jar tools/morphe-cli.jar patch \
-  --patches=patches/build/libs/pixiv-patches-1.0.0.mpp \
+  --patches=patches/build/libs/pixiv-patches-1.3.0.mpp \
   --out=pixiv-patched.apk \
   pixiv-base.apk
 ```
