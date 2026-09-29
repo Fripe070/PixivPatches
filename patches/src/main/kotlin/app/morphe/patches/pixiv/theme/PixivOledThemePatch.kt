@@ -27,11 +27,15 @@ val pixivOledThemePatch: ResourcePatch = resourcePatch(
                 val oledOverrides = setOf(
                     "charcoal_color_background1_dark",
                     "charcoal_color_surface1_dark",
+                    "charcoal_color_surface9_dark",
                     "charcoal_gray_90",
+                    "charcoal_gray_80",
+                    "cardview_dark_background",
                     "design_dark_default_color_surface",
                     "background_material_dark",
                     "material_grey_900",
-                    "material_grey_850"
+                    "material_grey_850",
+                    "material_grey_800"
                 )
 
                 for (i in 0 until colorNodes.length) {

@@ -1,14 +1,23 @@
+package app.morphe.patches.pixiv
+
 import app.morphe.patcher.patch.resourcePatch
 import app.morphe.patcher.patch.ResourcePatch
 import app.morphe.patcher.patch.Compatibility
+import app.morphe.patcher.patch.AppTarget
 import org.w3c.dom.Element
 
 val pixivExportPatch: ResourcePatch = resourcePatch(
-    name = "Pixiv Export Activities",
-    description = "Exports activities for testing",
-    default = true
+    name = "Developer Tools",
+    description = "Enables debuggable flags in AndroidManifest and exports settings activities for local testing and debugging.",
+    default = false
 ) {
-    compatibleWith(Compatibility(name = "Pixiv", packageName = "jp.pxv.android"))
+    compatibleWith(
+        Compatibility(
+            name = "Pixiv",
+            packageName = "jp.pxv.android",
+            targets = listOf(AppTarget("6.196.0"))
+        )
+    )
     execute {
         document("AndroidManifest.xml").use { doc ->
             val appNode = doc.getElementsByTagName("application").item(0) as? Element

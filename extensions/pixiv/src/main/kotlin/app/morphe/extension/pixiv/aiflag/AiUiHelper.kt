@@ -58,34 +58,7 @@ object AiUiHelper {
 
     @JvmStatic
     fun onDetailImageBound(viewHolder: Any?, illust: Any?) {
-        try {
-            if (viewHolder == null || illust == null) return
-            val actualIllust = AiDetectionHelper.unwrapIllust(illust) ?: illust
-            val isAi = AiDetectionHelper.isAi(actualIllust)
-
-            // Resolve itemView (CalcHeightViewHolder / RecyclerView.ViewHolder has field itemView)
-            val itemViewField = runCatching {
-                viewHolder.javaClass.getField("itemView")
-            }.getOrNull() ?: runCatching {
-                var c: Class<*>? = viewHolder.javaClass
-                var f: java.lang.reflect.Field? = null
-                while (c != null && f == null) {
-                    f = runCatching { c.getDeclaredField("itemView") }.getOrNull()
-                    c = c.superclass
-                }
-                f?.apply { isAccessible = true }
-            }.getOrNull()
-
-            val itemView = (itemViewField?.get(viewHolder) as? View) ?: (viewHolder as? View) ?: return
-            val parentGroup = itemView as? ViewGroup ?: (itemView.parent as? ViewGroup) ?: return
-
-            // Hide subtle corner badge on the image itself
-            hideBadge(parentGroup)
-
-            // Display prominent full-width warning banner below toolbar
-            showDetailAiBanner(parentGroup, actualIllust, isAi)
-        } catch (_: Throwable) {
-        }
+        // No-op: AI warning banner is anchored once at the top level in onDetailBottomBarBound
     }
 
     @JvmStatic
@@ -97,6 +70,7 @@ object AiUiHelper {
 
             val context = view.context
             AiDetectionHelper.appContext = context.applicationContext
+            app.morphe.extension.pixiv.premium.HistoryHelper.recordView(actualIllust)
 
             // 1. Maintain title pill metadata in bottom bar
             val resId = context.resources.getIdentifier("title_text_view", "id", context.packageName)

@@ -57,37 +57,62 @@ object EnhancedViewerHelper {
             val progressResId = context.resources.getIdentifier("progress_bar", "id", context.packageName)
             val defaultProgressBar = if (progressResId != 0) itemView.findViewById<View>(progressResId) else null
 
-            // Hide the default center spinner
-            defaultProgressBar?.visibility = View.GONE
-
-            // Inject the discreet corner loading badge
+            // Setup discreet loading badge (starts hidden until placeholder is active)
             setupDiscreetLoadingBadge(itemView, context)
 
             val pageIndex = (imageView.tag as? Int) ?: 0
-            val intent = activity.intent
-            val illust = intent?.getParcelableExtra<android.os.Parcelable>("KEY_ILLUST")
-                ?: intent?.extras?.get("KEY_ILLUST")
-
+            val illust = findIllust(activity)
             val placeholderUrl = if (illust != null) getStandardImageUrl(illust, pageIndex) else null
 
             // Check memory cache for a previously-loaded standard-res bitmap
             val cachedBmp: Bitmap? = if (placeholderUrl != null) placeholderCache.get(placeholderUrl) else null
 
             if (cachedBmp != null && !cachedBmp.isRecycled) {
-                applyPlaceholder(imageView, photoAttacher, cachedBmp)
+                applyPlaceholder(itemView, imageView, photoAttacher, cachedBmp, defaultProgressBar)
             } else if (!placeholderUrl.isNullOrEmpty()) {
-                fetchPlaceholderAsync(placeholderUrl, imageView, photoAttacher)
+                fetchPlaceholderAsync(itemView, placeholderUrl, imageView, photoAttacher, defaultProgressBar)
             }
         } catch (_: Throwable) {
         }
     }
 
-    private fun applyPlaceholder(imageView: ImageView, photoAttacher: Any?, bitmap: Bitmap) {
+    private fun findIllust(activity: Activity): Any? {
+        val intent = activity.intent
+        val fromIntent = intent?.getParcelableExtra<android.os.Parcelable>("KEY_ILLUST")
+            ?: intent?.extras?.get("KEY_ILLUST")
+        if (fromIntent != null) return fromIntent
+
+        // Fallback: inspect activity ViewModel (FullScreenImageActivity.j().d)
+        return runCatching {
+            val jMethod = activity.javaClass.getMethod("j")
+            val vm = jMethod.invoke(activity)
+            val dField = vm.javaClass.getDeclaredField("d").apply { isAccessible = true }
+            dField.get(vm)
+        }.getOrNull()
+    }
+
+    private fun applyPlaceholder(
+        container: ViewGroup,
+        imageView: ImageView,
+        photoAttacher: Any?,
+        bitmap: Bitmap,
+        defaultProgressBar: View?
+    ) {
         mainHandler.post {
             try {
                 if (imageView.drawable == null) {
                     imageView.setImageBitmap(bitmap)
                     updatePhotoAttacher(photoAttacher, imageView.drawable)
+
+                    // Once placeholder is successfully displayed:
+                    // 1. Hide the crude center spinner
+                    defaultProgressBar?.visibility = View.GONE
+                    // 2. Reveal the discreet corner HD loading badge
+                    val badge = container.findViewWithTag<View>(TAG_LOADING_BADGE)
+                    if (badge != null) {
+                        badge.visibility = View.VISIBLE
+                        badge.alpha = 1f
+                    }
                 }
             } catch (_: Throwable) {
             }
@@ -110,6 +135,7 @@ object EnhancedViewerHelper {
             tag = TAG_LOADING_BADGE
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            visibility = View.GONE // Hidden initially until placeholder displays
             setPadding(
                 dpToPx(context, 10f).toInt(),
                 dpToPx(context, 6f).toInt(),
@@ -153,7 +179,13 @@ object EnhancedViewerHelper {
         container.addView(badge)
     }
 
-    private fun fetchPlaceholderAsync(url: String, imageView: ImageView, photoAttacher: Any?) {
+    private fun fetchPlaceholderAsync(
+        container: ViewGroup,
+        url: String,
+        imageView: ImageView,
+        photoAttacher: Any?,
+        defaultProgressBar: View?
+    ) {
         executor.execute {
             try {
                 val conn = (URL(url).openConnection() as HttpURLConnection).apply {
@@ -167,7 +199,7 @@ object EnhancedViewerHelper {
                     conn.disconnect()
                     if (bmp != null) {
                         placeholderCache.put(url, bmp)
-                        applyPlaceholder(imageView, photoAttacher, bmp)
+                        applyPlaceholder(container, imageView, photoAttacher, bmp, defaultProgressBar)
                     }
                 } else {
                     conn.disconnect()
@@ -204,8 +236,13 @@ object EnhancedViewerHelper {
             // Post to mainHandler so it executes right after yr4.d finishes setting the full-res drawable
             mainHandler.post {
                 try {
-                    // 1. Fade out the HD loading badge
+                    // 1. Fade out the HD loading badge and hide any center progress spinner
                     if (mm5Layout != null) {
+                        val progressResId = mm5Layout.context.resources.getIdentifier("progress_bar", "id", mm5Layout.context.packageName)
+                        if (progressResId != 0) {
+                            mm5Layout.findViewById<View>(progressResId)?.visibility = View.GONE
+                        }
+
                         val badge = mm5Layout.findViewWithTag<View>(TAG_LOADING_BADGE)
                         if (badge != null && badge.visibility == View.VISIBLE) {
                             badge.animate()
