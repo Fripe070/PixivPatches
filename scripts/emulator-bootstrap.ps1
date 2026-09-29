@@ -40,10 +40,17 @@ $Devices = & $Adb devices
 $IsAttached = ($Devices -match $DeviceId)
 
 if (-not $IsAttached) {
-    Write-Host "[1/6] Launching emulator $AvdName detached..." -ForegroundColor Yellow
+    Write-Host "[1/6] Launching emulator $AvdName detached (no console window)..." -ForegroundColor Yellow
     if (-not (Test-Path $Emulator)) { throw "emulator.exe not found." }
 
-    Start-Process $Emulator -ArgumentList "-avd $AvdName -no-snapshot-load"
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = $Emulator
+    $psi.Arguments = "-avd $AvdName -no-snapshot-load"
+    $psi.CreateNoWindow = $true
+    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
+    $psi.UseShellExecute = $false
+    [System.Diagnostics.Process]::Start($psi) | Out-Null
+
     Write-Host "Waiting for device to connect to ADB..." -ForegroundColor Gray
     & $Adb -s $DeviceId wait-for-device
 } else {
