@@ -167,7 +167,8 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
             )
         }
 
-        // 8. Hook he9.a(I)Landroidx/fragment/app/Fragment; -> return te9 (illust) or ne9 (novel) popular preview
+        // 8. Hook he9.a(I)Landroidx/fragment/app/Fragment; -> return te9 (illust) or ne9 (novel) popular preview for all popular sorts
+        //    and strip misleading dropdown arrow from Popular tab title
         val searchAdapterClass = mutableClassDefByOrNull("Lhe9;")
         searchAdapterClass?.let { cls ->
             val aMethod = cls.methods.firstOrNull { it.name == "a" && it.returnType == "Landroidx/fragment/app/Fragment;" }
@@ -177,8 +178,13 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
                 iget-object v0, p0, Lhe9;->l:Ljava/util/List;
                 invoke-interface {v0, p1}, Ljava/util/List;->get(I)Ljava/lang/Object;
                 move-result-object v0
-                sget-object v1, Lxe9;->d:Lxe9;
-                if-ne v0, v1, :cond_normal
+                check-cast v0, Lxe9;
+                invoke-virtual {v0}, Ljava/lang/Enum;->ordinal()I
+                move-result v0
+                const/4 v1, 0x2
+                if-ge v0, v1, :cond_popular
+                goto :cond_normal
+                :cond_popular
                 iget-object v1, p0, Lhe9;->k:Lgd9;
                 sget-object v2, Lxe9;->d:Lxe9;
                 invoke-virtual {v1, v2}, Lgd9;->a(Lxe9;)Lgd9;
@@ -209,6 +215,37 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
                 :cond_normal
                 """.trimIndent()
             )
+
+            val getPageTitleMethod = cls.methods.firstOrNull { it.name == "getPageTitle" && it.returnType == "Ljava/lang/CharSequence;" }
+            getPageTitleMethod?.addInstructions(
+                0,
+                """
+                iget-object v0, p0, Lhe9;->l:Ljava/util/List;
+                invoke-interface {v0, p1}, Ljava/util/List;->get(I)Ljava/lang/Object;
+                move-result-object v0
+                check-cast v0, Lxe9;
+                invoke-virtual {v0}, Ljava/lang/Enum;->ordinal()I
+                move-result v0
+                iget-object v1, p0, Lhe9;->h:Landroid/content/Context;
+                if-nez v0, :cond_check_old
+                const v0, 0x7f1302e5
+                invoke-virtual {v1, v0}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+                move-result-object v0
+                return-object v0
+                :cond_check_old
+                const/4 v2, 0x1
+                if-ne v0, v2, :cond_check_pop
+                const v0, 0x7f1302e6
+                invoke-virtual {v1, v0}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+                move-result-object v0
+                return-object v0
+                :cond_check_pop
+                const v0, 0x7f1302e7
+                invoke-virtual {v1, v0}, Landroid/content/Context;->getString(I)Ljava/lang/String;
+                move-result-object v0
+                return-object v0
+                """.trimIndent()
+            )
         }
 
         // 9. Suppress trial countdown (pe9) and premium upsell banner (je9) in popular search
@@ -231,6 +268,18 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
                 """
                 const/4 v0, 0x0
                 return v0
+                """.trimIndent()
+            )
+        }
+
+        // 10. Suppress non-functional gender dropdown dialog on Popular tab (wd9.b)
+        val tabReselectedClass = mutableClassDefByOrNull("Lwd9;")
+        tabReselectedClass?.let { cls ->
+            val bMethod = cls.methods.firstOrNull { it.name == "b" && it.returnType == "V" }
+            bMethod?.addInstructions(
+                0,
+                """
+                return-void
                 """.trimIndent()
             )
         }
