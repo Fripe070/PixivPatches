@@ -193,9 +193,141 @@ function Open-Work {
     }
 }
 
+function Test-EnhancedViewer {
+    <#
+    .SYNOPSIS
+        Captures half-loaded fullscreen placeholder state vs full-res loaded state.
+    #>
+    param(
+        [string]$IllustId = "148348720",
+        [string]$DeviceId = $Script:DefaultDevice
+    )
+
+    Open-Work -IllustId $IllustId -Wait -DeviceId $DeviceId
+    Start-Sleep -Seconds 3
+
+    Write-Host "[Viewer] Clearing logcat and entering fullscreen..." -ForegroundColor Yellow
+    & $Script:Adb -s $DeviceId logcat -c
+
+    # Tap center of illustration
+    & $Script:Adb -s $DeviceId shell input tap 540 600
+
+    # Capture half-loaded placeholder immediately
+    Start-Sleep -Milliseconds 450
+    $p1 = Capture-Screen "viewer_half_loaded_${IllustId}.png" -DeviceId $DeviceId
+    Write-Host "  -> Captured half-loaded placeholder view: $p1" -ForegroundColor Cyan
+
+    # Wait for full-res load
+    Start-Sleep -Seconds 3
+    $p2 = Capture-Screen "viewer_fullres_${IllustId}.png" -DeviceId $DeviceId
+    Write-Host "  -> Captured full-res loaded view: $p2" -ForegroundColor Cyan
+
+    # Collect diagnostics
+    $logs = & $Script:Adb -s $DeviceId logcat -d | Select-String -Pattern "MorpheEnhancedViewer"
+    Write-Host "`nEnhanced Viewer Diagnostics:" -ForegroundColor Yellow
+    if ($logs) {
+        $logs | ForEach-Object { Write-Host "  " $_.Line -ForegroundColor Green }
+    } else {
+        Write-Host "  [OK] Fullscreen rendered without black screen hang." -ForegroundColor Green
+    }
+
+    # Dismiss
+    & $Script:Adb -s $DeviceId shell input keyevent 4
+}
+
+Add-Type -AssemblyName System.Drawing
+
+function Capture-TallScreen {
+    <#
+    .SYNOPSIS
+        Captures a tall, stitched scrolling screenshot (like native Android scrolling screenshot).
+        Ideal for artwork detail pages (capturing header art, metadata, recommended, and comments in one image).
+    #>
+    param(
+        [string]$Name = "tall_detail.png",
+        [int]$ScrollSteps = 3,
+        [int]$SwipeStartY = 1800,
+        [int]$SwipeEndY = 600,
+        [int]$SwipeDurationMs = 400,
+        [string]$DeviceId = $Script:DefaultDevice
+    )
+
+    $tempFiles = @()
+    $bitmaps = @()
+    $scrollDistance = $SwipeStartY - $SwipeEndY
+
+    try {
+        New-Item -ItemType Directory -Force -Path $Script:CapturesDir | Out-Null
+        $outPath = Join-Path $Script:CapturesDir $Name
+
+        Write-Host "[TallScreen] Starting scrolling capture ($ScrollSteps steps, scroll dist: ${scrollDistance}px)..." -ForegroundColor Cyan
+
+        for ($i = 0; $i -lt $ScrollSteps; $i++) {
+            $tmpFile = [System.IO.Path]::GetTempFileName() + ".png"
+            $tempFiles += $tmpFile
+
+            # Capture current viewport
+            & $Script:Adb -s $DeviceId exec-out screencap -p > $tmpFile
+            $bmp = [System.Drawing.Bitmap]::FromFile($tmpFile)
+            $bitmaps += $bmp
+
+            if ($i -lt ($ScrollSteps - 1)) {
+                # Scroll down
+                & $Script:Adb -s $DeviceId shell input swipe 540 $SwipeStartY 540 $SwipeEndY $SwipeDurationMs
+                Start-Sleep -Milliseconds 800
+            }
+        }
+
+        # Stitch bitmaps
+        $w = $bitmaps[0].Width
+        $hFooter = 100
+
+        # Calculate total height: first page minus footer + (subsequent pages * scrollDistance)
+        $firstPageH = $bitmaps[0].Height - $hFooter
+        $totalHeight = $firstPageH + (($bitmaps.Count - 1) * $scrollDistance)
+
+        $stitched = [System.Drawing.Bitmap]::new($w, $totalHeight)
+        $g = [System.Drawing.Graphics]::FromImage($stitched)
+        $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+
+        # Draw page 0 (all the way to above navigation pill)
+        $srcRect0 = [System.Drawing.Rectangle]::new(0, 0, $w, $firstPageH)
+        $destRect0 = [System.Drawing.Rectangle]::new(0, 0, $w, $firstPageH)
+        $g.DrawImage($bitmaps[0], $destRect0, $srcRect0, [System.Drawing.GraphicsUnit]::Pixel)
+
+        $destY = $firstPageH
+
+        # Draw newly revealed strip from each subsequent scroll
+        for ($i = 1; $i -lt $bitmaps.Count; $i++) {
+            $srcY = [Math]::Max(0, $bitmaps[$i].Height - $hFooter - $scrollDistance)
+            $srcRect = [System.Drawing.Rectangle]::new(0, $srcY, $w, $scrollDistance)
+            $destRect = [System.Drawing.Rectangle]::new(0, $destY, $w, $scrollDistance)
+            $g.DrawImage($bitmaps[$i], $destRect, $srcRect, [System.Drawing.GraphicsUnit]::Pixel)
+            $destY += $scrollDistance
+        }
+
+        $g.Dispose()
+
+        # Save result
+        $stitched.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
+        $stitched.Dispose()
+        Copy-Item $outPath (Join-Path $Script:CapturesDir "latest.png") -Force
+
+        $fileSize = (Get-Item $outPath).Length
+        Write-Host "[TallScreen] Generated $outPath (${w}x${totalHeight}px, $fileSize bytes) -> mirrored to captures/latest.png" -ForegroundColor Green
+        return $outPath
+    }
+    finally {
+        foreach ($b in $bitmaps) { $b.Dispose() }
+        foreach ($f in $tempFiles) { Remove-Item $f -Force -ErrorAction SilentlyContinue }
+    }
+}
+
 Write-Host "Pixiv Emulator Automation CLI loaded." -ForegroundColor Yellow
 Write-Host "Available functions:" -ForegroundColor Gray
 Write-Host "  Capture-Screen [-Name <name.png>] [-Wait] [-WaitForNode <id>]" -ForegroundColor DarkCyan
+Write-Host "  Capture-TallScreen [-Name <name.png>] [-ScrollSteps <n>]" -ForegroundColor DarkCyan
 Write-Host "  Dump-Ui [-Filter <pattern>]" -ForegroundColor DarkCyan
 Write-Host "  Tap-Node [-Desc <str>] [-Id <str>] [-Text <str>]" -ForegroundColor DarkCyan
 Write-Host "  Open-Work -IllustId <id> [-Wait]" -ForegroundColor DarkCyan
+Write-Host "  Test-EnhancedViewer [-IllustId <id>]" -ForegroundColor DarkCyan

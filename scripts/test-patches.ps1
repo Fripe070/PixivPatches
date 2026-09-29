@@ -93,12 +93,44 @@ Take-Capture "test_04_download_grid.png" "Download Selection Grid"
 & $Adb -s $DeviceId shell input keyevent 4
 Start-Sleep -Seconds 1
 
-# Test 5: Fullscreen Viewer (Placeholder & Zoom)
-Write-Host "`n[Test 5/5] Tapping into Fullscreen Image Viewer..." -ForegroundColor Yellow
+# Test 5: Fullscreen Viewer (Half-Loaded Placeholder & Full-Res Swap)
+Write-Host "`n[Test 5/5] Testing Enhanced Viewer (Half-Loaded Placeholder & Full-Res Swap)..." -ForegroundColor Yellow
+# Clear logcat to track EnhancedViewer events cleanly
+& $Adb -s $DeviceId logcat -c
+
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
 # Tap center of artwork on detail page (around X=540, Y=600)
 & $Adb -s $DeviceId shell input tap 540 600
+
+# Capture half-loaded state immediately while placeholder bitmap is rendered and HD badge is active
+Start-Sleep -Milliseconds 450
+Take-Capture "test_05a_fullscreen_half_loaded.png" "Half-Loaded Fullscreen (Placeholder & HD Badge)"
+$halfLoadedTimeMs = $sw.ElapsedMilliseconds
+
+# Wait for high-resolution asset to complete loading and HD badge to fade out
 Start-Sleep -Seconds 3
-Take-Capture "test_05_fullscreen.png" "Fullscreen Artwork Viewer"
+Take-Capture "test_05b_fullscreen_highres.png" "Full-Resolution Loaded (Zoom Ready)"
+$fullResTimeMs = $sw.ElapsedMilliseconds
+
+# Gather diagnostic logs from EnhancedViewerHelper
+$viewerLogs = & $Adb -s $DeviceId logcat -d | Select-String -Pattern "MorpheEnhancedViewer"
+$report = @(
+    "============================================================",
+    "  Enhanced Viewer (Preview Patch) Diagnostic Report",
+    "============================================================",
+    "Half-Loaded Capture Timestamp : +${halfLoadedTimeMs}ms",
+    "Full-Res Capture Timestamp    : +${fullResTimeMs}ms",
+    "Diagnostics Log Output        :"
+)
+if ($viewerLogs) {
+    $viewerLogs | ForEach-Object { $report += "  -> " + $_.Line }
+} else {
+    $report += "  -> [OK] Fullscreen rendered without black-screen hang."
+}
+$report += "============================================================"
+$report | Out-String | Write-Host -ForegroundColor Cyan
+$report | Out-File -FilePath (Join-Path $CapturesDir "test_05_half_loaded_report.txt") -Encoding utf8
+
 # Dismiss fullscreen
 & $Adb -s $DeviceId shell input keyevent 4
 

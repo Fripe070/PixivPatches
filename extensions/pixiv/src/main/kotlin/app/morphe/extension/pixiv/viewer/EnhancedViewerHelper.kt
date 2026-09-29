@@ -15,6 +15,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.util.LruCache
 import android.util.TypedValue
 import android.view.Gravity
@@ -113,6 +114,7 @@ object EnhancedViewerHelper {
                         badge.visibility = View.VISIBLE
                         badge.alpha = 1f
                     }
+                    Log.i("MorpheEnhancedViewer", "Placeholder applied (${bitmap.width}x${bitmap.height}), HD loading badge displayed")
                 }
             } catch (_: Throwable) {
             }
@@ -270,6 +272,7 @@ object EnhancedViewerHelper {
                             }
                         }
                     }
+                    Log.i("MorpheEnhancedViewer", "Full-res loaded, HD badge dismissed, matrix restored: ${savedMatrix != null}")
                 } catch (_: Throwable) {
                 }
             }
