@@ -234,38 +234,34 @@ $report += "============================================================"
 $report | Out-String | Write-Host -ForegroundColor Cyan
 $report | Out-File -FilePath (Join-Path $CapturesDir "test_05_half_loaded_report.txt") -Encoding utf8
 
-# Dismiss fullscreen
+# Dismiss fullscreen and detail view, returning to MainActivity
 & $Adb -s $DeviceId shell input keyevent 4
-Start-Sleep -Milliseconds 500
+Start-Sleep -Milliseconds 600
+& $Adb -s $DeviceId shell input keyevent 4
+Start-Sleep -Milliseconds 600
+Wait-For-ActivityFocus "MainActivity" -TimeoutSec 5 | Out-Null
 
 # Test 6: Popular Works Search Tab (Premium Popular Preview Patch)
 Write-Host "`n[Test 6/6] Verifying Popular Works Search Tab (Preview Hook)..." -ForegroundColor Yellow
-# Bring MainActivity to front and navigate to Search tab
-& $Adb -s $DeviceId shell am start -n jp.pxv.android/.feature.root.MainActivity -p jp.pxv.android | Out-Null
-Wait-For-ActivityFocus "MainActivity" -TimeoutSec 5 | Out-Null
-# Tap Search icon in bottom navigation bar (X=324, Y=2264)
-& $Adb -s $DeviceId shell input tap 324 2264
-Wait-For-UiMatch "Enter keyword|Illust/Manga|#HatsuneMiku" -TimeoutSec 8 | Out-Null
-# Tap top trending tag (approx X=540, Y=1052)
-& $Adb -s $DeviceId shell input tap 540 1052
-Wait-For-UiMatch "Newest|Popular" -TimeoutSec 10 | Out-Null
+# Direct deep link to tag search (instant force-navigation)
+& $Adb -s $DeviceId shell am start -a android.intent.action.VIEW -d "pixiv://illusts/tag/miku" -p jp.pxv.android | Out-Null
+Wait-For-Condition "Popular" -TimeoutSec 5 | Out-Null
 # Tap Popular tab (X=540, Y=342)
 & $Adb -s $DeviceId shell input tap 540 342
-Wait-For-UiMatch "popular|30" -TimeoutSec 10 | Out-Null
-Start-Sleep -Milliseconds 1500
+Start-Sleep -Seconds 2
 Take-Capture "test_06_popular_search.png" "Popular Works Search Grid"
 
 # Test 7: Mute Settings Persistence (Local Storage & Response Merging across Restart)
 Write-Host "`n[Test 7/7] Verifying Mute Settings Persistence..." -ForegroundColor Yellow
+# Direct deep link back to Home feed
+& $Adb -s $DeviceId shell am start -a android.intent.action.VIEW -d "pixiv://home" -p jp.pxv.android | Out-Null
+Start-Sleep -Seconds 2
 # Navigate to My Page (X=972, Y=2264)
-& $Adb -s $DeviceId shell am start -n jp.pxv.android/.feature.root.MainActivity -p jp.pxv.android | Out-Null
-Start-Sleep -Milliseconds 800
 & $Adb -s $DeviceId shell input tap 972 2264
-Wait-For-UiMatch "Mute settings" -TimeoutSec 5 | Out-Null
+Start-Sleep -Seconds 2
 # Tap Mute settings (X=258, Y=2114)
 & $Adb -s $DeviceId shell input tap 258 2114
-Wait-For-UiMatch "Mute settings|By using the" -TimeoutSec 5 | Out-Null
-Start-Sleep -Milliseconds 1000
+Start-Sleep -Seconds 2
 Take-Capture "test_07_mute_settings.png" "Mute Settings List"
 
 Write-Host "`n============================================================" -ForegroundColor Green
