@@ -16,10 +16,12 @@ param(
     [string]$DeviceId = "emulator-5554",
     [string]$AiWorkId = "123939215",
     [string]$MultiPageWorkId = "148348720",
-    [string]$NormalWorkId = "148626820"
+    [string]$NormalWorkId = "148626820",
+    [string]$LargeWorkId = "121352238"
 )
 
 $ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $false
 $RepoRoot = (Get-Item "$PSScriptRoot\..").FullName
 $CapturesDir = Join-Path $RepoRoot "captures"
 New-Item -ItemType Directory -Force -Path $CapturesDir | Out-Null
@@ -35,7 +37,8 @@ function Take-Capture {
     param([string]$Filename, [string]$StepLabel)
     Write-Host "  -> Capturing $StepLabel ($Filename)..." -ForegroundColor Cyan
     $Dest = Join-Path $CapturesDir $Filename
-    & $Adb -s $DeviceId exec-out screencap -p > $Dest
+    & $Adb -s $DeviceId shell screencap -p /sdcard/s.png
+    & $Adb -s $DeviceId pull /sdcard/s.png $Dest | Out-Null
     Copy-Item $Dest (Join-Path $CapturesDir "latest.png") -Force
 }
 
@@ -46,14 +49,19 @@ function Wait-For-UiMatch {
     )
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec) {
-        $dump = & $Adb -s $DeviceId shell "uiautomator dump /sdcard/chk.xml" 2>&1
+        $dump = ""
+        try {
+            $dump = (& $Adb -s $DeviceId shell "uiautomator dump /sdcard/chk.xml" 2>&1 | Out-String)
+        } catch {}
         if ($dump -match "dumped to") {
-            $xml = & $Adb -s $DeviceId shell "cat /sdcard/chk.xml" 2>&1
-            if ($xml -match $Pattern) {
-                return $true
-            }
+            try {
+                $xml = (& $Adb -s $DeviceId shell "cat /sdcard/chk.xml" 2>&1 | Out-String)
+                if ($xml -match $Pattern) {
+                    return $true
+                }
+            } catch {}
         }
-        Start-Sleep -Milliseconds 350
+        Start-Sleep -Milliseconds 400
     }
     Write-Warning "Condition timeout: '$Pattern' not matched after ${TimeoutSec}s."
     return $false
@@ -66,13 +74,53 @@ function Wait-For-LogMatch {
     )
     $sw = [System.Diagnostics.Stopwatch]::StartNew()
     while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec) {
-        $found = & $Adb -s $DeviceId logcat -d | Select-String -Pattern $Pattern
-        if ($found) {
-            return $true
-        }
+        try {
+            $found = & $Adb -s $DeviceId logcat -d 2>&1 | Select-String -Pattern $Pattern
+            if ($found) {
+                return $true
+            }
+        } catch {}
         Start-Sleep -Milliseconds 200
     }
     return $false
+}
+
+function Wait-For-ActivityFocus {
+    param(
+        [string]$ActivityPattern,
+        [int]$TimeoutSec = 10
+    )
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec) {
+        try {
+            $focus = (& $Adb -s $DeviceId shell "dumpsys window | grep mCurrentFocus" 2>&1 | Out-String)
+            if ($focus -match $ActivityPattern) {
+                return $true
+            }
+        } catch {}
+        Start-Sleep -Milliseconds 200
+    }
+    Write-Warning "Activity focus timeout: '$ActivityPattern' not reached after ${TimeoutSec}s."
+    return $false
+}
+
+function Wait-For-DetailReady {
+    param(
+        [string]$WorkId,
+        [int]$TimeoutSec = 15
+    )
+    Write-Host "  -> Waiting for detail view of $WorkId (combo focus + UI)..." -ForegroundColor Gray
+    Wait-For-ActivityFocus "IllustDetail" -TimeoutSec $TimeoutSec | Out-Null
+    Wait-For-UiMatch "tool_bar|menu_share|title_text_view" -TimeoutSec 8 | Out-Null
+    Start-Sleep -Milliseconds 1200
+}
+
+function Wait-For-FeedReady {
+    param([int]$TimeoutSec = 20)
+    Write-Host "  -> Waiting for home feed (combo focus + UI + image render)..." -ForegroundColor Gray
+    Wait-For-ActivityFocus "MainActivity" -TimeoutSec $TimeoutSec | Out-Null
+    Wait-For-UiMatch "thumbnail_view|ranking_title_text_view|illust_grid_thumbnail_view|Rankings|Recommended" -TimeoutSec 10 | Out-Null
+    Start-Sleep -Milliseconds 2000
 }
 
 Write-Host "============================================================" -ForegroundColor Cyan
@@ -102,13 +150,13 @@ if ((Test-Path $BaseApk) -and (Test-Path $MorpheCli)) {
 
 # Test 1: Home Feed (Wait for actual feed content to render)
 Write-Host "`n[Test 1/5] Verifying Home Feed (Adblocker & Feed Flags)..." -ForegroundColor Yellow
-Wait-For-UiMatch "thumbnail_view|ranking_title_text_view|illust_grid_thumbnail_view|Rankings|Recommended" -TimeoutSec 20
+Wait-For-FeedReady -TimeoutSec 25
 Take-Capture "test_01_feed.png" "Home Feed"
 
 # Test 2: Artwork Detail via Deep-Link (AI Flagged)
 Write-Host "`n[Test 2/5] Navigating to AI Artwork Detail ($AiWorkId)..." -ForegroundColor Yellow
 & $Adb -s $DeviceId shell am start -a android.intent.action.VIEW -d "https://www.pixiv.net/artworks/$AiWorkId" -p jp.pxv.android | Out-Null
-Wait-For-UiMatch "tool_bar|menu_share|title_text_view"
+Wait-For-DetailReady $AiWorkId
 Take-Capture "test_02_ai_detail.png" "AI Artwork Detail"
 
 # Test 3: Recommended Works Area
@@ -116,37 +164,52 @@ Write-Host "`n[Test 3/5] Scrolling down to Recommended Works on Detail screen...
 & $Adb -s $DeviceId shell input swipe 540 1800 540 600 400
 Start-Sleep -Milliseconds 600
 & $Adb -s $DeviceId shell input swipe 540 1800 540 600 400
-Start-Sleep -Milliseconds 600
+Start-Sleep -Milliseconds 1000
 Take-Capture "test_03_recommended.png" "Recommended Works Area"
 
 # Test 4: Download Picker on Multi-Page Work
 Write-Host "`n[Test 4/5] Navigating to Multi-Page Work ($MultiPageWorkId) for Download Grid..." -ForegroundColor Yellow
 & $Adb -s $DeviceId shell am start -a android.intent.action.VIEW -d "https://www.pixiv.net/artworks/$MultiPageWorkId" -p jp.pxv.android | Out-Null
-Wait-For-UiMatch "tool_bar|menu_share"
+Wait-For-DetailReady $MultiPageWorkId
 # Tap download action in toolbar (Download button center X=922, Y=205 on 1080x2400 screen)
 & $Adb -s $DeviceId shell input tap 922 205
 Wait-For-UiMatch "Select Images to Download|DOWNLOAD \("
+Start-Sleep -Milliseconds 500
 Take-Capture "test_04_download_grid.png" "Download Selection Grid"
 # Dismiss dialog by pressing back
 & $Adb -s $DeviceId shell input keyevent 4
 Start-Sleep -Milliseconds 500
 
 # Test 5: Fullscreen Viewer (Half-Loaded Placeholder & Full-Res Swap)
-Write-Host "`n[Test 5/5] Testing Enhanced Viewer (Half-Loaded Placeholder & Full-Res Swap)..." -ForegroundColor Yellow
+Write-Host "`n[Test 5/5] Navigating to Large Artwork ($LargeWorkId) for Enhanced Viewer..." -ForegroundColor Yellow
+& $Adb -s $DeviceId shell am start -a android.intent.action.VIEW -d "https://www.pixiv.net/artworks/$LargeWorkId" -p jp.pxv.android | Out-Null
+Wait-For-DetailReady $LargeWorkId
+
 # Clear logcat to track EnhancedViewer events cleanly
 & $Adb -s $DeviceId logcat -c
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-# Tap center of artwork on detail page (around X=540, Y=600)
-& $Adb -s $DeviceId shell input tap 540 600
+# Tap center of artwork on detail page (around X=540, Y=700)
+& $Adb -s $DeviceId shell input tap 540 700
 
-# Wait for placeholder display log or small barrier
-Wait-For-LogMatch "MorpheEnhancedViewer: Placeholder applied" -TimeoutSec 3 | Out-Null
+# Combo step 1: Wait for FullScreenImageActivity focus
+Wait-For-ActivityFocus "FullScreenImageActivity" -TimeoutSec 5 | Out-Null
+
+# Combo step 2: Window enter transition settle delay (~500ms)
+Start-Sleep -Milliseconds 500
+
+# Combo step 3: Check placeholder log event
+Wait-For-LogMatch "MorpheEnhancedViewer: (Placeholder applied|Instant applying cached)" -TimeoutSec 2 | Out-Null
+
+# Capture half-loaded screenshot (placeholder & HD badge)
 Take-Capture "test_05a_fullscreen_half_loaded.png" "Half-Loaded Fullscreen (Placeholder & HD Badge)"
 $halfLoadedTimeMs = $sw.ElapsedMilliseconds
 
-# Wait for high-resolution asset to complete loading and HD badge to fade out
-Wait-For-LogMatch "MorpheEnhancedViewer: Full-res loaded" -TimeoutSec 6 | Out-Null
+# Combo step 4: Wait for high-resolution asset to complete loading and HD badge to fade out
+Wait-For-LogMatch "MorpheEnhancedViewer: Full-res loaded" -TimeoutSec 10 | Out-Null
+
+# Combo step 5: Settle for HD badge fade-out animation
+Start-Sleep -Milliseconds 300
 Take-Capture "test_05b_fullscreen_highres.png" "Full-Resolution Loaded (Zoom Ready)"
 $fullResTimeMs = $sw.ElapsedMilliseconds
 

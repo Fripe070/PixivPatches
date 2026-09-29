@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Typeface
+import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.util.TypedValue
@@ -71,6 +72,26 @@ object AiUiHelper {
             val context = view.context
             AiDetectionHelper.appContext = context.applicationContext
             app.morphe.extension.pixiv.premium.HistoryHelper.recordView(actualIllust)
+
+            // Cache current detail bitmap for instant fullscreen placeholder
+            view.post {
+                try {
+                    val root = view.rootView
+                    val imgResId = context.resources.getIdentifier("image_view", "id", context.packageName)
+                    val iv = if (imgResId != 0) root?.findViewById<ImageView>(imgResId) else null
+                    if (iv != null) {
+                        val grab = {
+                            val d = iv.drawable
+                            if (d is BitmapDrawable && d.bitmap != null && !d.bitmap.isRecycled) {
+                                app.morphe.extension.pixiv.viewer.EnhancedViewerHelper.setCachedDetailBitmap(d.bitmap, actualIllust)
+                            }
+                        }
+                        grab()
+                        iv.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> grab() }
+                    }
+                } catch (_: Throwable) {
+                }
+            }
 
             // 1. Maintain title pill metadata in bottom bar
             val resId = context.resources.getIdentifier("title_text_view", "id", context.packageName)
