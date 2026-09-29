@@ -70,9 +70,11 @@ Runs the end-to-end regression test suite using **Combo Synchronization** (Windo
 .\scripts\test-patches.ps1
 ```
 
-Outputs 5 canonical captures into `captures/`:
+Outputs 7 canonical captures into `captures/`:
 1. `test_01_feed.png`: Feed adblocker and thumbnail flags.
 2. `test_02_ai_detail.png`: Single top AI warning banner & title tag.
 3. `test_03_recommended.png`: Recommended Works section below fold.
 4. `test_04_download_grid.png`: Multi-image download picker grid.
 5. `test_05a_fullscreen_half_loaded.png` / `test_05b_fullscreen_highres.png`: Instant low-res placeholder, discreet HD loading badge, and subsequent full-res swap.
+6. `test_06_popular_search.png`: Popular search tab preview API routing & persistent trial bypass.
+7. `test_07_mute_settings.png`: Unlimited mute settings list and local persistence across restart.

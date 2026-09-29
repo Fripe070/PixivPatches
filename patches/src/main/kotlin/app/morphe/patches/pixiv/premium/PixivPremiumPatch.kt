@@ -54,7 +54,10 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
             )
         }
 
-        // 4. Hook MuteSettingResponse.a()I -> return 9999 (unlimited mute limit count)
+        // 4. Hook MuteSettingResponse:
+        //    a()I -> return 9999 (unlimited mute limit count)
+        //    c()Ljava/util/List; -> return merged muted tags (server + local)
+        //    d()Ljava/util/List; -> return merged muted users (server + local)
         val muteSettingClass = mutableClassDefByOrNull("Ljp/pxv/android/data/mute/remote/dto/MuteSettingResponse;")
         muteSettingClass?.let { cls ->
             val aMethod = cls.methods.firstOrNull { it.name == "a" && it.returnType == "I" }
@@ -65,6 +68,55 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
                 return v0
                 """.trimIndent()
             )
+            val cMethod = cls.methods.firstOrNull { it.name == "c" && it.returnType == "Ljava/util/List;" }
+            cMethod?.addInstructions(
+                0,
+                """
+                invoke-static {p0}, Lapp/morphe/extension/pixiv/premium/MuteHelper;->getMergedMutedTags(Ljava/lang/Object;)Ljava/util/List;
+                move-result-object v0
+                return-object v0
+                """.trimIndent()
+            )
+            val dMethod = cls.methods.firstOrNull { it.name == "d" && it.returnType == "Ljava/util/List;" }
+            dMethod?.addInstructions(
+                0,
+                """
+                invoke-static {p0}, Lapp/morphe/extension/pixiv/premium/MuteHelper;->getMergedMutedUsers(Ljava/lang/Object;)Ljava/util/List;
+                move-result-object v0
+                return-object v0
+                """.trimIndent()
+            )
+        }
+
+        // Hook ob6.<init> to capture mute additions and removals into local storage
+        val ob6Class = mutableClassDefByOrNull("Lob6;")
+        ob6Class?.let { cls ->
+            val ctor = cls.methods.firstOrNull { it.name == "<init>" }
+            ctor?.addInstructions(
+                1,
+                """
+                invoke-static {p1, p2, p3, p4}, Lapp/morphe/extension/pixiv/premium/MuteHelper;->onMuteSettingUpdated(Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/util/List;)V
+                """.trimIndent()
+            )
+        }
+
+        // Hook sa6.<init> to initialize in-memory mute maps from local storage immediately on startup
+        val sa6Class = mutableClassDefByOrNull("Lsa6;")
+        sa6Class?.let { cls ->
+            val ctor = cls.methods.firstOrNull { it.name == "<init>" }
+            ctor?.let { method ->
+                val returnIdx = method.implementation?.instructions?.indexOfLast {
+                    it.opcode.name.startsWith("return")
+                } ?: -1
+                if (returnIdx >= 0) {
+                    method.addInstructions(
+                        returnIdx,
+                        """
+                        invoke-static {p0}, Lapp/morphe/extension/pixiv/premium/MuteHelper;->initSa6(Ljava/lang/Object;)V
+                        """.trimIndent()
+                    )
+                }
+            }
         }
 
         // 5. Hook MuteLimitForTextApiModel -> return 9999 for both free and premium mute limits

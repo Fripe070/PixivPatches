@@ -11,6 +11,7 @@
       4. Download Picker (Multi-image selection grid, checkmark badges, cached thumbnails)
       5. Fullscreen Viewer (Placeholder instant display, HD badge, zoom preservation)
       6. Popular Search Tab (Preview API routing, persistent client trial bypass)
+      7. Mute Settings Persistence (Local storage & response merging across restart)
 #>
 
 param(
@@ -254,8 +255,21 @@ Wait-For-UiMatch "Remaining|popular|30" -TimeoutSec 10 | Out-Null
 Start-Sleep -Milliseconds 1500
 Take-Capture "test_06_popular_search.png" "Popular Works Search Grid"
 
+# Test 7: Mute Settings Persistence (Local Storage & Response Merging across Restart)
+Write-Host "`n[Test 7/7] Verifying Mute Settings Persistence..." -ForegroundColor Yellow
+# Navigate to My Page (X=972, Y=2264)
+& $Adb -s $DeviceId shell am start -n jp.pxv.android/.feature.root.MainActivity -p jp.pxv.android | Out-Null
+Start-Sleep -Milliseconds 800
+& $Adb -s $DeviceId shell input tap 972 2264
+Wait-For-UiMatch "Mute settings" -TimeoutSec 5 | Out-Null
+# Tap Mute settings (X=258, Y=2114)
+& $Adb -s $DeviceId shell input tap 258 2114
+Wait-For-UiMatch "Mute settings|By using the" -TimeoutSec 5 | Out-Null
+Start-Sleep -Milliseconds 1000
+Take-Capture "test_07_mute_settings.png" "Mute Settings List"
+
 Write-Host "`n============================================================" -ForegroundColor Green
-Write-Host "  TEST SUITE COMPLETE: All 6 captures updated in captures/" -ForegroundColor Green
+Write-Host "  TEST SUITE COMPLETE: All 7 captures updated in captures/" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 Get-ChildItem -Path $CapturesDir -Filter "test_*.png" | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
 

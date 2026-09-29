@@ -21,6 +21,25 @@ object HistoryHelper {
                     localHistory.removeAt(localHistory.size - 1)
                 }
             }
+
+            // Cache author user info for MuteHelper
+            try {
+                val userField = runCatching { illust.javaClass.getDeclaredField("user").apply { isAccessible = true } }.getOrNull()
+                val user = userField?.get(illust)
+                if (user != null) {
+                    val uid = (runCatching { user.javaClass.getDeclaredField("id").apply { isAccessible = true } }.getOrNull()?.get(user) as? Number)?.toLong()
+                    val uname = runCatching { user.javaClass.getDeclaredField("name").apply { isAccessible = true } }.getOrNull()?.get(user) as? String
+                    val uaccount = runCatching { user.javaClass.getDeclaredField("account").apply { isAccessible = true } }.getOrNull()?.get(user) as? String
+                    val profileUrls = runCatching { user.javaClass.getDeclaredField("profileImageUrls").apply { isAccessible = true } }.getOrNull()?.get(user)
+                    val avatarUrl = profileUrls?.let {
+                        runCatching { it.javaClass.getDeclaredField("medium").apply { isAccessible = true } }.getOrNull()?.get(it) as? String
+                    }
+                    if (uid != null && uname != null) {
+                        MuteHelper.rememberUser(uid, uname, uaccount, avatarUrl)
+                    }
+                }
+            } catch (_: Throwable) {
+            }
         } catch (_: Throwable) {
         }
     }
