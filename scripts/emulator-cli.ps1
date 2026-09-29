@@ -100,8 +100,9 @@ function Capture-Screen {
         Wait-For-ScreenReady -MustHaveNode $WaitForNode -TimeoutSec $TimeoutSec -DeviceId $DeviceId | Out-Null
     }
 
-    # Direct pipe capture via adb exec-out (zero filesystem overhead on device)
-    & $Script:Adb -s $DeviceId exec-out screencap -p > $outPath
+    # Robust binary capture via device /sdcard storage + adb pull (avoids PowerShell stdout text encoding corruption)
+    & $Script:Adb -s $DeviceId shell screencap -p /sdcard/cli_screencap.png
+    & $Script:Adb -s $DeviceId pull /sdcard/cli_screencap.png $outPath | Out-Null
     Copy-Item $outPath (Join-Path $Script:CapturesDir "latest.png") -Force
     Write-Host "[Captured] $outPath ($((Get-Item $outPath).Length) bytes) -> mirrored to captures/latest.png" -ForegroundColor Green
     return $outPath
@@ -267,8 +268,9 @@ function Capture-TallScreen {
             $tmpFile = [System.IO.Path]::GetTempFileName() + ".png"
             $tempFiles += $tmpFile
 
-            # Capture current viewport
-            & $Script:Adb -s $DeviceId exec-out screencap -p > $tmpFile
+            # Capture current viewport cleanly to avoid stdout corruption
+            & $Script:Adb -s $DeviceId shell screencap -p /sdcard/cli_tall_step.png
+            & $Script:Adb -s $DeviceId pull /sdcard/cli_tall_step.png $tmpFile | Out-Null
             $bmp = [System.Drawing.Bitmap]::FromFile($tmpFile)
             $bitmaps += $bmp
 
