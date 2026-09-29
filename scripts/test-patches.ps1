@@ -25,16 +25,54 @@ $CapturesDir = Join-Path $RepoRoot "captures"
 New-Item -ItemType Directory -Force -Path $CapturesDir | Out-Null
 
 $Adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
-if (-not (Test-Path $Adb)) { $Adb = (Get-Command adb -ErrorAction SilentlyContinue)?.Source }
+if (-not (Test-Path $Adb)) {
+    $foundAdb = Get-Command adb -ErrorAction SilentlyContinue
+    if ($foundAdb) { $Adb = $foundAdb.Source }
+}
 if (-not $Adb) { throw "adb.exe not found." }
 
 function Take-Capture {
     param([string]$Filename, [string]$StepLabel)
     Write-Host "  -> Capturing $StepLabel ($Filename)..." -ForegroundColor Cyan
-    & $Adb -s $DeviceId shell screencap -p /sdcard/test_screen.png
     $Dest = Join-Path $CapturesDir $Filename
-    & $Adb -s $DeviceId pull /sdcard/test_screen.png $Dest | Out-Null
+    & $Adb -s $DeviceId exec-out screencap -p > $Dest
     Copy-Item $Dest (Join-Path $CapturesDir "latest.png") -Force
+}
+
+function Wait-For-UiMatch {
+    param(
+        [string]$Pattern,
+        [int]$TimeoutSec = 15
+    )
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec) {
+        $dump = & $Adb -s $DeviceId shell "uiautomator dump /sdcard/chk.xml" 2>&1
+        if ($dump -match "dumped to") {
+            $xml = & $Adb -s $DeviceId shell "cat /sdcard/chk.xml" 2>&1
+            if ($xml -match $Pattern) {
+                return $true
+            }
+        }
+        Start-Sleep -Milliseconds 350
+    }
+    Write-Warning "Condition timeout: '$Pattern' not matched after ${TimeoutSec}s."
+    return $false
+}
+
+function Wait-For-LogMatch {
+    param(
+        [string]$Pattern,
+        [int]$TimeoutSec = 8
+    )
+    $sw = [System.Diagnostics.Stopwatch]::StartNew()
+    while ($sw.Elapsed.TotalSeconds -lt $TimeoutSec) {
+        $found = & $Adb -s $DeviceId logcat -d | Select-String -Pattern $Pattern
+        if ($found) {
+            return $true
+        }
+        Start-Sleep -Milliseconds 200
+    }
+    return $false
 }
 
 Write-Host "============================================================" -ForegroundColor Cyan
@@ -62,36 +100,36 @@ if ((Test-Path $BaseApk) -and (Test-Path $MorpheCli)) {
 # Run bootstrap to ensure device is awake, unlocked, and app is running
 & "$PSScriptRoot\emulator-bootstrap.ps1" -DeviceId $DeviceId -ApkPath $PatchedApk
 
-# Test 1: Home Feed
+# Test 1: Home Feed (Wait for actual feed content to render)
 Write-Host "`n[Test 1/5] Verifying Home Feed (Adblocker & Feed Flags)..." -ForegroundColor Yellow
-Start-Sleep -Seconds 9
+Wait-For-UiMatch "thumbnail_view|ranking_title_text_view|illust_grid_thumbnail_view|Rankings|Recommended" -TimeoutSec 20
 Take-Capture "test_01_feed.png" "Home Feed"
 
 # Test 2: Artwork Detail via Deep-Link (AI Flagged)
 Write-Host "`n[Test 2/5] Navigating to AI Artwork Detail ($AiWorkId)..." -ForegroundColor Yellow
 & $Adb -s $DeviceId shell am start -a android.intent.action.VIEW -d "https://www.pixiv.net/artworks/$AiWorkId" -p jp.pxv.android | Out-Null
-Start-Sleep -Seconds 6
+Wait-For-UiMatch "tool_bar|menu_share|title_text_view"
 Take-Capture "test_02_ai_detail.png" "AI Artwork Detail"
 
 # Test 3: Recommended Works Area
 Write-Host "`n[Test 3/5] Scrolling down to Recommended Works on Detail screen..." -ForegroundColor Yellow
 & $Adb -s $DeviceId shell input swipe 540 1800 540 600 400
-Start-Sleep -Seconds 2
+Start-Sleep -Milliseconds 600
 & $Adb -s $DeviceId shell input swipe 540 1800 540 600 400
-Start-Sleep -Seconds 2
+Start-Sleep -Milliseconds 600
 Take-Capture "test_03_recommended.png" "Recommended Works Area"
 
 # Test 4: Download Picker on Multi-Page Work
 Write-Host "`n[Test 4/5] Navigating to Multi-Page Work ($MultiPageWorkId) for Download Grid..." -ForegroundColor Yellow
 & $Adb -s $DeviceId shell am start -a android.intent.action.VIEW -d "https://www.pixiv.net/artworks/$MultiPageWorkId" -p jp.pxv.android | Out-Null
-Start-Sleep -Seconds 4
+Wait-For-UiMatch "tool_bar|menu_share"
 # Tap download action in toolbar (Download button center X=922, Y=205 on 1080x2400 screen)
 & $Adb -s $DeviceId shell input tap 922 205
-Start-Sleep -Seconds 3
+Wait-For-UiMatch "Select Images to Download|DOWNLOAD \("
 Take-Capture "test_04_download_grid.png" "Download Selection Grid"
 # Dismiss dialog by pressing back
 & $Adb -s $DeviceId shell input keyevent 4
-Start-Sleep -Seconds 1
+Start-Sleep -Milliseconds 500
 
 # Test 5: Fullscreen Viewer (Half-Loaded Placeholder & Full-Res Swap)
 Write-Host "`n[Test 5/5] Testing Enhanced Viewer (Half-Loaded Placeholder & Full-Res Swap)..." -ForegroundColor Yellow
@@ -102,13 +140,13 @@ $sw = [System.Diagnostics.Stopwatch]::StartNew()
 # Tap center of artwork on detail page (around X=540, Y=600)
 & $Adb -s $DeviceId shell input tap 540 600
 
-# Capture half-loaded state immediately while placeholder bitmap is rendered and HD badge is active
-Start-Sleep -Milliseconds 450
+# Wait for placeholder display log or small barrier
+Wait-For-LogMatch "MorpheEnhancedViewer: Placeholder applied" -TimeoutSec 3 | Out-Null
 Take-Capture "test_05a_fullscreen_half_loaded.png" "Half-Loaded Fullscreen (Placeholder & HD Badge)"
 $halfLoadedTimeMs = $sw.ElapsedMilliseconds
 
 # Wait for high-resolution asset to complete loading and HD badge to fade out
-Start-Sleep -Seconds 3
+Wait-For-LogMatch "MorpheEnhancedViewer: Full-res loaded" -TimeoutSec 6 | Out-Null
 Take-Capture "test_05b_fullscreen_highres.png" "Full-Resolution Loaded (Zoom Ready)"
 $fullResTimeMs = $sw.ElapsedMilliseconds
 

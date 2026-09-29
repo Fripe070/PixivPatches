@@ -18,7 +18,8 @@ $ErrorActionPreference = "Stop"
 
 $Adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 if (-not (Test-Path $Adb)) {
-    $Adb = (Get-Command adb -ErrorAction SilentlyContinue)?.Source
+    $foundAdb = Get-Command adb -ErrorAction SilentlyContinue
+    if ($foundAdb) { $Adb = $foundAdb.Source }
 }
 if (-not $Adb -or -not (Test-Path $Adb)) {
     throw "adb.exe not found in Android SDK platform-tools or PATH."
@@ -26,7 +27,8 @@ if (-not $Adb -or -not (Test-Path $Adb)) {
 
 $Emulator = "$env:LOCALAPPDATA\Android\Sdk\emulator\emulator.exe"
 if (-not (Test-Path $Emulator)) {
-    $Emulator = (Get-Command emulator -ErrorAction SilentlyContinue)?.Source
+    $foundEmulator = Get-Command emulator -ErrorAction SilentlyContinue
+    if ($foundEmulator) { $Emulator = $foundEmulator.Source }
 }
 
 Write-Host "============================================================" -ForegroundColor Cyan

@@ -17,7 +17,8 @@
 
 $Script:Adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 if (-not (Test-Path $Script:Adb)) {
-    $Script:Adb = (Get-Command adb -ErrorAction SilentlyContinue)?.Source
+    $foundAdb = Get-Command adb -ErrorAction SilentlyContinue
+    if ($foundAdb) { $Script:Adb = $foundAdb.Source }
 }
 $Script:DefaultDevice = "emulator-5554"
 $Script:RepoRoot = (Get-Item "$PSScriptRoot\..").FullName
