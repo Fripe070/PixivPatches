@@ -10,6 +10,7 @@
       3. Recommended Works (Dark theme surface contrast, related thumbnail flags)
       4. Download Picker (Multi-image selection grid, checkmark badges, cached thumbnails)
       5. Fullscreen Viewer (Placeholder instant display, HD badge, zoom preservation)
+      6. Popular Search Tab (Preview API routing, persistent client trial bypass)
 #>
 
 param(
@@ -234,8 +235,27 @@ $report | Out-File -FilePath (Join-Path $CapturesDir "test_05_half_loaded_report
 
 # Dismiss fullscreen
 & $Adb -s $DeviceId shell input keyevent 4
+Start-Sleep -Milliseconds 500
+
+# Test 6: Popular Works Search Tab (Premium Popular Preview Patch)
+Write-Host "`n[Test 6/6] Verifying Popular Works Search Tab (Preview Hook)..." -ForegroundColor Yellow
+# Bring MainActivity to front and navigate to Search tab
+& $Adb -s $DeviceId shell am start -n jp.pxv.android/.feature.root.MainActivity -p jp.pxv.android | Out-Null
+Wait-For-ActivityFocus "MainActivity" -TimeoutSec 5 | Out-Null
+# Tap Search icon in bottom navigation bar (X=324, Y=2264)
+& $Adb -s $DeviceId shell input tap 324 2264
+Wait-For-UiMatch "Enter keyword|Illust/Manga|#HatsuneMiku" -TimeoutSec 8 | Out-Null
+# Tap top trending tag (approx X=540, Y=1052)
+& $Adb -s $DeviceId shell input tap 540 1052
+Wait-For-UiMatch "Newest|Popular" -TimeoutSec 10 | Out-Null
+# Tap Popular tab (X=540, Y=342)
+& $Adb -s $DeviceId shell input tap 540 342
+Wait-For-UiMatch "Remaining|popular|30" -TimeoutSec 10 | Out-Null
+Start-Sleep -Milliseconds 1500
+Take-Capture "test_06_popular_search.png" "Popular Works Search Grid"
 
 Write-Host "`n============================================================" -ForegroundColor Green
-Write-Host "  TEST SUITE COMPLETE: All 5 captures updated in captures/" -ForegroundColor Green
+Write-Host "  TEST SUITE COMPLETE: All 6 captures updated in captures/" -ForegroundColor Green
 Write-Host "============================================================" -ForegroundColor Green
 Get-ChildItem -Path $CapturesDir -Filter "test_*.png" | Select-Object Name, Length, LastWriteTime | Format-Table -AutoSize
+

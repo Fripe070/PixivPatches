@@ -8,7 +8,7 @@ This directory contains automation, testing, and debugging utilities for the Pix
 
 | Script | Purpose | Usage |
 | :--- | :--- | :--- |
-| **[`test-patches.ps1`](test-patches.ps1)** | **Automated E2E Verification**: Builds MPP, patches APK, deploys to device, and runs the 5-point combo synchronization visual test suite. | `.\scripts\test-patches.ps1` |
+| **[`test-patches.ps1`](test-patches.ps1)** | **Automated E2E Verification**: Builds MPP, patches APK, deploys to device, and runs the 6-point combo synchronization visual test suite (Feed, Detail, Recommended, Downloader, Enhanced Viewer, Popular Search). | `.\scripts\test-patches.ps1` |
 | **[`emulator-bootstrap.ps1`](emulator-bootstrap.ps1)** | **Environment Bootstrap**: Checks/starts emulator, waits for full OS boot, unlocks keyguard, clears ANRs, deploys APK, and launches Pixiv. | `.\scripts\emulator-bootstrap.ps1` |
 | **[`emulator-cli.ps1`](emulator-cli.ps1)** | **Interactive CLI Toolkit**: Dot-sourceable PowerShell module providing fast one-liners for live debugging, DOM inspection, and tall screenshots. | `. .\scripts\emulator-cli.ps1` |
 

@@ -101,5 +101,62 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
                 """.trimIndent()
             )
         }
+
+        // 7. Hook eva.x()J -> return 0L (days elapsed since install = 0, so trial never expires)
+        val evaClass = mutableClassDefByOrNull("Leva;")
+        evaClass?.let { cls ->
+            val xMethod = cls.methods.firstOrNull { it.name == "x" && it.returnType == "J" }
+            xMethod?.addInstructions(
+                0,
+                """
+                const-wide/16 v0, 0x0
+                return-wide v0
+                """.trimIndent()
+            )
+        }
+
+        // 8. Hook he9.a(I)Landroidx/fragment/app/Fragment; -> return te9 (illust) or ne9 (novel) popular preview
+        val searchAdapterClass = mutableClassDefByOrNull("Lhe9;")
+        searchAdapterClass?.let { cls ->
+            val aMethod = cls.methods.firstOrNull { it.name == "a" && it.returnType == "Landroidx/fragment/app/Fragment;" }
+            aMethod?.addInstructions(
+                0,
+                """
+                iget-object v0, p0, Lhe9;->l:Ljava/util/List;
+                invoke-interface {v0, p1}, Ljava/util/List;->get(I)Ljava/lang/Object;
+                move-result-object v0
+                sget-object v1, Lxe9;->d:Lxe9;
+                if-ne v0, v1, :cond_normal
+                iget-object v1, p0, Lhe9;->k:Lgd9;
+                sget-object v2, Lxe9;->d:Lxe9;
+                invoke-virtual {v1, v2}, Lgd9;->a(Lxe9;)Lgd9;
+                move-result-object v1
+                iget-object v2, p0, Lhe9;->k:Lgd9;
+                iget-object v2, v2, Lgd9;->b:Ljp/pxv/android/domain/commonentity/ContentType;
+                invoke-virtual {v2}, Ljava/lang/Enum;->ordinal()I
+                move-result v2
+                const/4 v3, 0x2
+                if-ne v2, v3, :cond_illust
+                new-instance v0, Lne9;
+                invoke-direct {v0}, Lne9;-><init>()V
+                new-instance v2, Landroid/os/Bundle;
+                invoke-direct {v2}, Landroid/os/Bundle;-><init>()V
+                const-string v3, "SEARCH_PARAMETER"
+                invoke-virtual {v2, v3, v1}, Landroid/os/Bundle;->putSerializable(Ljava/lang/String;Ljava/io/Serializable;)V
+                invoke-virtual {v0, v2}, Landroidx/fragment/app/Fragment;->setArguments(Landroid/os/Bundle;)V
+                return-object v0
+                :cond_illust
+                new-instance v0, Lte9;
+                invoke-direct {v0}, Lte9;-><init>()V
+                new-instance v2, Landroid/os/Bundle;
+                invoke-direct {v2}, Landroid/os/Bundle;-><init>()V
+                const-string v3, "SEARCH_PARAMETER"
+                invoke-virtual {v2, v3, v1}, Landroid/os/Bundle;->putSerializable(Ljava/lang/String;Ljava/io/Serializable;)V
+                invoke-virtual {v0, v2}, Landroidx/fragment/app/Fragment;->setArguments(Landroid/os/Bundle;)V
+                return-object v0
+                :cond_normal
+                """.trimIndent()
+            )
+        }
     }
 }
