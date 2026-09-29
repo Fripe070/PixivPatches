@@ -251,7 +251,7 @@ Wait-For-UiMatch "Enter keyword|Illust/Manga|#HatsuneMiku" -TimeoutSec 8 | Out-N
 Wait-For-UiMatch "Newest|Popular" -TimeoutSec 10 | Out-Null
 # Tap Popular tab (X=540, Y=342)
 & $Adb -s $DeviceId shell input tap 540 342
-Wait-For-UiMatch "Remaining|popular|30" -TimeoutSec 10 | Out-Null
+Wait-For-UiMatch "popular|30" -TimeoutSec 10 | Out-Null
 Start-Sleep -Milliseconds 1500
 Take-Capture "test_06_popular_search.png" "Popular Works Search Grid"
 

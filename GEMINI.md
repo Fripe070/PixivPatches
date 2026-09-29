@@ -13,8 +13,10 @@ This repository produces a Morphe `.mpp` patch bundle for the official Pixiv And
 
 ## Reverse-Engineering & Inspection Protocol
 When researching Pixiv obfuscated classes, layouts, or IDs:
-- **Apktool / Decoded Resources**: Use `tools/apktool.jar` to decode resources (`tools/apktool_out/res`).
-- **JADX Decompiler**: Use `tools/jadx/bin/jadx.bat` with `--single-class <full.class.Name>` against `pixiv-base.apk` to inspect decompiled Java without decompiling the entire 40MB APK at once.
+- **Decompiled Java Sources**: A full deobfuscated dump is maintained in `tools/decompiled/sources/` (generated via JADX with `--deobf --use-source-name-as-class-name-alias always`). Directly grep or search these sources.
+- **Interactive JADX GUI**: Use `tools/jadx/bin/jadx-gui.bat` against `pixiv-base.apk` for symbol renaming (`N`), xref lookup (`X`), and visual inspection.
+- **Apktool / Decoded Resources**: Decoded layouts, strings, and drawables reside in `tools/apktool_out/res/`.
+- **Targeted Decompiler**: If inspecting a specific class from scratch without touching `tools/decompiled`: `tools/jadx/bin/jadx.bat -d tools/scratch/jadx_out --single-class <class.name> pixiv-base.apk`.
 - **Reference Clones**: When inspecting reference repos, shallow clone locally (`git clone --depth 1 <url>`) and clean up temporary directories when done.
 
 ## Local Build Pipelines

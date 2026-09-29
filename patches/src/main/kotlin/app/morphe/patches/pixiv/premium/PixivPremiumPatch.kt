@@ -210,5 +210,29 @@ val pixivPremiumPatch: BytecodePatch = bytecodePatch(
                 """.trimIndent()
             )
         }
+
+        // 9. Suppress trial countdown (pe9) and premium upsell banner (je9) in popular search
+        val pe9Class = mutableClassDefByOrNull("Lpe9;")
+        pe9Class?.let { cls ->
+            val dMethod = cls.methods.firstOrNull { it.name == "d" && it.returnType == "Z" }
+            dMethod?.addInstructions(
+                0,
+                """
+                const/4 v0, 0x0
+                return v0
+                """.trimIndent()
+            )
+        }
+        val je9Class = mutableClassDefByOrNull("Lje9;")
+        je9Class?.let { cls ->
+            val dMethod = cls.methods.firstOrNull { it.name == "d" && it.returnType == "Z" }
+            dMethod?.addInstructions(
+                0,
+                """
+                const/4 v0, 0x0
+                return v0
+                """.trimIndent()
+            )
+        }
     }
 }
