@@ -40,16 +40,25 @@ $Devices = & $Adb devices
 $IsAttached = ($Devices -match $DeviceId)
 
 if (-not $IsAttached) {
-    Write-Host "[1/6] Launching emulator $AvdName detached (no console window)..." -ForegroundColor Yellow
+    Write-Host "[1/6] Launching emulator $AvdName detached (independent background process)..." -ForegroundColor Yellow
     if (-not (Test-Path $Emulator)) { throw "emulator.exe not found." }
 
-    $psi = [System.Diagnostics.ProcessStartInfo]::new()
-    $psi.FileName = $Emulator
-    $psi.Arguments = "-avd $AvdName -no-snapshot-load"
-    $psi.CreateNoWindow = $true
-    $psi.WindowStyle = [System.Diagnostics.ProcessWindowStyle]::Hidden
-    $psi.UseShellExecute = $false
-    [System.Diagnostics.Process]::Start($psi) | Out-Null
+    $cmdLine = "`"$Emulator`" -avd $AvdName -no-snapshot-load"
+    $launched = $false
+    try {
+        $res = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmdLine }
+        if ($res.ReturnValue -eq 0) {
+            $launched = $true
+        } else {
+            Write-Warning "WMI process creation returned status code $($res.ReturnValue); falling back to Start-Process..."
+        }
+    } catch {
+        Write-Warning "WMI process creation threw an exception ($($_.Exception.Message)); falling back to Start-Process..."
+    }
+
+    if (-not $launched) {
+        Start-Process -FilePath $Emulator -ArgumentList "-avd", $AvdName, "-no-snapshot-load" -WindowStyle Hidden
+    }
 
     Write-Host "Waiting for device to connect to ADB..." -ForegroundColor Gray
     & $Adb -s $DeviceId wait-for-device
