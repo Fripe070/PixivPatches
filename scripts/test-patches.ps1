@@ -245,7 +245,7 @@ Wait-For-ActivityFocus "MainActivity" -TimeoutSec 5 | Out-Null
 Write-Host "`n[Test 6/6] Verifying Popular Works Search Tab (Preview Hook)..." -ForegroundColor Yellow
 # Direct deep link to tag search (instant force-navigation)
 & $Adb -s $DeviceId shell am start -a android.intent.action.VIEW -d "pixiv://illusts/tag/miku" -p jp.pxv.android | Out-Null
-Wait-For-Condition "Popular" -TimeoutSec 5 | Out-Null
+Wait-For-UiMatch "Popular" -TimeoutSec 5 | Out-Null
 # Tap Popular tab (X=540, Y=342)
 & $Adb -s $DeviceId shell input tap 540 342
 Start-Sleep -Seconds 2
