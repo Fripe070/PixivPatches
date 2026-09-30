@@ -86,11 +86,13 @@ Whenever code, extensions, or patch definitions are ready for a new release:
      ```
 2. **Local Build & Sanity Check**:
    - Run `.\build-mpp.ps1` to ensure compilation, bytecode hooks, DEX generation, and `dexdump` verification succeed with code 0.
-3. **Commit & Push to Main**:
+3. **Batch Refresh Decompiled Sources**:
+   - Run `..\tools\update-sources.ps1` to compile any newly recorded mappings into `tools/decompiled/sources/`.
+4. **Commit & Push to Main**:
    - `git add <relevant files>` (do not stage in-progress parallel agent work)
    - `git commit --no-gpg-sign -m "chore(release): bump version to <version>"`
    - `git push origin main`
-4. **Tag & Trigger Automated GitHub Actions Release**:
+5. **Tag & Trigger Automated GitHub Actions Release**:
    - Create and push a matching version tag:
      ```bash
      git tag v<version>
