@@ -47,6 +47,7 @@ Used in GitHub Actions. Requires network access or Gradle cache:
 3. **Deploy & Launch**:
    - Install: `& $adb -s emulator-5554 install -r -d pixiv-patched.apk`
    - Launch: `& $adb -s emulator-5554 shell monkey -p jp.pxv.android -c android.intent.category.LAUNCHER 1`
+   - Deep-Link: `& $adb -s emulator-5554 shell am start -a android.intent.action.VIEW -d "https://www.pixiv.net/artworks/<ID>" -p jp.pxv.android` (Always specify `-p jp.pxv.android`, otherwise Android opens the web browser instead of the app). Or use `Open-Work -IllustId "<ID>" -Wait` from `scripts/emulator-cli.ps1`.
 4. **Verification & Debugging**:
    - **Live Logs**:
      ```powershell
