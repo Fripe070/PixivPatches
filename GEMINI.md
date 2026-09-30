@@ -16,6 +16,11 @@ When researching Pixiv obfuscated classes, layouts, or IDs:
 - **Decompiled Java Sources (`tools/decompiled/sources/`)**: The complete, pre-decompiled codebase with 14,000+ semantic mappings is stored here. **DO NOT run ad-hoc JADX single-class dumps.** Always grep or view these files directly.
 - **Bytecode Reference Invariant**: Every renamed class in `tools/decompiled/sources/` retains its original smali name in its header comment (`/* JADX INFO: renamed from: <smali> */`). Use this original name when creating Morphe bytecode hooks (e.g. `mutableClassDefBy("L<smali>;")`).
 - **Interactive JADX GUI**: Use `tools/jadx/bin/jadx-gui.bat ..\pixiv-base.apk` for symbol renaming (`N`), xref lookup (`X`), and visual inspection.
+- **Continuous Mapping Protocol**: When you identify an obfuscated class/method, **append it** to `tools/generate-jobf.py` under `# 2b. Curated Reverse-Engineering Targets`:
+  ```python
+  add_class("raw_smali_name", "jp.pxv.android.package.SemanticName")
+  ```
+  **DO NOT trigger a full JADX re-decompilation mid-task**—this locks up files for concurrent agents. Continue using the class immediately in hooks. Decompiled sources will be batch regenerated during release milestones.
 - **Apktool / Decoded Resources**: Decoded layouts, strings, and drawables reside in `tools/apktool_out/res/`.
 - **Reference Clones**: When inspecting reference repos, shallow clone locally (`git clone --depth 1 <url>`) and clean up temporary directories when done.
 
