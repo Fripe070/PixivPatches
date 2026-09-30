@@ -1,3 +1,9 @@
+> [!IMPORTANT]
+> These patches are 100% pure unreviewed AI slop.
+> I only started this because I couldn't find any Pixiv Morphe patches that did what I wanted, and I don't care enough to write my own.
+> **Use at your own risk.**
+
+
 # 🎨 Pixiv Morphe Patches
 
 [![Build Morphe Patch Bundle](https://github.com/Fripe070/PixivPatches/actions/workflows/build.yml/badge.svg)](https://github.com/Fripe070/PixivPatches/actions/workflows/build.yml)
