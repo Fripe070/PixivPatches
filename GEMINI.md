@@ -41,14 +41,21 @@ Used in GitHub Actions. Requires network access or Gradle cache:
 ```
 
 ## Emulator & Device Testing Procedure
+
+> [!TIP]
+> **Choose the right test level:**
+> - To test compilation only: `.\build-mpp.ps1` (~15s).
+> - For full regression testing across all features: run `.\scripts\test-patches.ps1` directly—it **automatically** builds the MPP, patches the APK, installs it, and runs visual tests. Do not run manual build/deploy steps beforehand.
+> - For targeted interactive debugging: use the steps below.
+
 1. **Locations**:
    - ADB: `$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe`
-   - CLI: `tools\morphe-cli.jar`
-   - Base APK: `pixiv-base.apk` (`jp.pxv.android` v6.196.0)
+   - CLI: `..\tools\morphe-cli.jar`
+   - Base APK: `..\pixiv-base.apk` (`jp.pxv.android` v6.196.0)
    - Target Device: `emulator-5554` (`Pixel_8_API_35`)
-2. **Build & Patch**:
+2. **Interactive Build & Patch** (when manually debugging):
    - Build MPP: `.\build-mpp.ps1`
-   - Patch APK: `java -jar tools\morphe-cli.jar patch -p (Get-Item patches\build\libs\*.mpp).FullName -o pixiv-patched.apk pixiv-base.apk`
+   - Patch APK: `java -jar ..\tools\morphe-cli.jar patch -p (Get-Item patches\build\libs\*.mpp).FullName -o pixiv-patched.apk ..\pixiv-base.apk`
 3. **Deploy & Launch**:
    - Install: `& $adb -s emulator-5554 install -r -d pixiv-patched.apk`
    - Launch: `& $adb -s emulator-5554 shell monkey -p jp.pxv.android -c android.intent.category.LAUNCHER 1`
