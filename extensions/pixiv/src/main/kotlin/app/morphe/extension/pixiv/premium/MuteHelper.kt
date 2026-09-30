@@ -6,8 +6,15 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorFilter
+import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.util.TypedValue
@@ -16,7 +23,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupMenu
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
@@ -459,9 +468,48 @@ object MuteHelper {
     }
 
     @JvmStatic
-    fun showBackupMenu(activity: Activity) {
+    @JvmOverloads
+    fun showBackupMenu(activity: Activity, anchor: View? = null) {
         val tagsCount = getLocalMutedTags().size
         val usersCount = getLocalMutedUsers().size
+
+        if (anchor != null) {
+            val popup = PopupMenu(activity, anchor, Gravity.END)
+            popup.menu.add(0, 1, 0, "📤 Export Mutes ($tagsCount tags, $usersCount users)")
+            popup.menu.add(0, 2, 1, "📥 Import Mutes...")
+            if (tagsCount > 0 || usersCount > 0) {
+                popup.menu.add(0, 3, 2, "🗑️ Clear Local Mutes")
+            }
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    1 -> {
+                        exportMuteSettingsDialog(activity)
+                        true
+                    }
+                    2 -> {
+                        importMuteSettingsDialog(activity) { reloadActivity(activity) }
+                        true
+                    }
+                    3 -> {
+                        AlertDialog.Builder(activity)
+                            .setTitle("Clear Local Mutes")
+                            .setMessage("Are you sure you want to remove all locally stored muted tags and users?")
+                            .setPositiveButton("Clear") { _, _ ->
+                                clearLocalMutes()
+                                Toast.makeText(activity, "Local mute settings cleared", Toast.LENGTH_SHORT).show()
+                                reloadActivity(activity)
+                            }
+                            .setNegativeButton("Cancel", null)
+                            .show()
+                        true
+                    }
+                    else -> false
+                }
+            }
+            popup.show()
+            return
+        }
+
         val items = arrayOf(
             "📤 Export Mute Settings",
             "📥 Import Mute Settings",
@@ -631,6 +679,60 @@ object MuteHelper {
             .show()
     }
 
+    class ImportExportIconDrawable(private val color: Int = Color.WHITE) : Drawable() {
+        private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = this@ImportExportIconDrawable.color
+            style = Paint.Style.FILL
+        }
+        private val path = Path()
+
+        override fun onBoundsChange(bounds: Rect) {
+            super.onBoundsChange(bounds)
+            path.reset()
+            val width = bounds.width().toFloat()
+            val height = bounds.height().toFloat()
+            val size = minOf(width, height)
+            val s = size / 24f
+            val ox = bounds.left + (width - size) / 2f
+            val oy = bounds.top + (height - size) / 2f
+
+            // Up arrow (import / upload - left)
+            path.moveTo(ox + 9f * s, oy + 3f * s)
+            path.lineTo(ox + 5f * s, oy + 7f * s)
+            path.lineTo(ox + 8f * s, oy + 7f * s)
+            path.lineTo(ox + 8f * s, oy + 14f * s)
+            path.lineTo(ox + 10f * s, oy + 14f * s)
+            path.lineTo(ox + 10f * s, oy + 7f * s)
+            path.lineTo(ox + 13f * s, oy + 7f * s)
+            path.close()
+
+            // Down arrow (export / download - right)
+            path.moveTo(ox + 15f * s, oy + 21f * s)
+            path.lineTo(ox + 19f * s, oy + 17f * s)
+            path.lineTo(ox + 16f * s, oy + 17f * s)
+            path.lineTo(ox + 16f * s, oy + 10f * s)
+            path.lineTo(ox + 14f * s, oy + 10f * s)
+            path.lineTo(ox + 14f * s, oy + 17f * s)
+            path.lineTo(ox + 11f * s, oy + 17f * s)
+            path.close()
+        }
+
+        override fun draw(canvas: Canvas) {
+            canvas.drawPath(path, paint)
+        }
+
+        override fun setAlpha(alpha: Int) {
+            paint.alpha = alpha
+        }
+
+        override fun setColorFilter(colorFilter: ColorFilter?) {
+            paint.colorFilter = colorFilter
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun getOpacity(): Int = PixelFormat.TRANSLUCENT
+    }
+
     @JvmStatic
     fun setupMuteSettingsActivity(activity: Activity) {
         activity.window.decorView.post {
@@ -643,49 +745,37 @@ object MuteHelper {
                 }
 
                 val statusBarHeight = getStatusBarHeight(activity)
+                val buttonSize = dpToPx(activity, 48f).toInt()
                 val toolbarHeight = dpToPx(activity, 56f).toInt()
+                val topOffset = statusBarHeight + (toolbarHeight - buttonSize) / 2
 
-                val buttonContainer = FrameLayout(activity).apply {
+                val backupButton = ImageView(activity).apply {
                     tag = "pixiv_morphe_mute_backup_btn"
-                }
-
-                val backupButton = TextView(activity).apply {
-                    text = "Import / Export"
-                    textSize = 12f
-                    typeface = Typeface.DEFAULT_BOLD
-                    setTextColor(Color.WHITE)
-                    val hp = dpToPx(activity, 10f).toInt()
-                    val vp = dpToPx(activity, 5f).toInt()
-                    setPadding(hp, vp, hp, vp)
-                    background = GradientDrawable().apply {
-                        shape = GradientDrawable.RECTANGLE
-                        cornerRadius = dpToPx(activity, 14f)
-                        setColor(0x33FFFFFF)
-                        setStroke(dpToPx(activity, 1f).toInt(), 0x88FFFFFF.toInt())
+                    contentDescription = "Import or export mute settings"
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        tooltipText = "Import / Export"
                     }
-                    setOnClickListener {
-                        showBackupMenu(activity)
+                    val pad = dpToPx(activity, 12f).toInt()
+                    setPadding(pad, pad, pad, pad)
+                    setImageDrawable(ImportExportIconDrawable(Color.WHITE))
+
+                    val outValue = TypedValue()
+                    if (activity.theme.resolveAttribute(android.R.attr.selectableItemBackgroundBorderless, outValue, true)) {
+                        setBackgroundResource(outValue.resourceId)
+                    }
+
+                    setOnClickListener { v ->
+                        showBackupMenu(activity, v)
                     }
                 }
 
-                val btnLp = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    FrameLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    gravity = Gravity.CENTER_VERTICAL or Gravity.END
-                }
-                buttonContainer.addView(backupButton, btnLp)
-
-                val containerLp = FrameLayout.LayoutParams(
-                    FrameLayout.LayoutParams.WRAP_CONTENT,
-                    toolbarHeight
-                ).apply {
+                val lp = FrameLayout.LayoutParams(buttonSize, buttonSize).apply {
                     gravity = Gravity.TOP or Gravity.END
-                    topMargin = statusBarHeight
-                    marginEnd = dpToPx(activity, 12f).toInt()
+                    topMargin = topOffset
+                    marginEnd = dpToPx(activity, 4f).toInt()
                 }
 
-                content.addView(buttonContainer, containerLp)
+                content.addView(backupButton, lp)
             } catch (_: Throwable) {
             }
         }

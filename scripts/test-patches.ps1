@@ -121,6 +121,8 @@ if ($LASTEXITCODE -ne 0) { throw "emulator-bootstrap.ps1 failed." }
 
 # Test 1: Home Feed (Adblocker active & feed items rendered)
 Write-Host "`n[Test 1/7] Verifying Home Feed (Adblocker & Feed Flags)..." -ForegroundColor Yellow
+& $Adb -s $DeviceId shell am start -a android.intent.action.VIEW -d "pixiv://home" -p jp.pxv.android | Out-Null
+Start-Sleep -Seconds 2
 Assert-UiCondition -Pattern "thumbnail_view|ranking_title_text_view|illust_grid_thumbnail_view|Rankings|Recommended" -Description "Home Feed Content Rendered" -TimeoutSec 25
 Capture-Screen "test_01_feed.png" -DeviceId $DeviceId | Out-Null
 
